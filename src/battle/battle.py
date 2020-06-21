@@ -3,8 +3,6 @@ from typing import *
 from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
-from src.ai import ModelInterface
-
 from src.models import Status, status_names, Player, Pokemon, PokemonType, Move, Effectiveness, Item
 from src.utils import print_battle_screen, clear, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, random_int, get_terminal_dimensions
 
@@ -14,47 +12,61 @@ class Battle:
     _PLAYER_1_ID = 1
     _PLAYER_2_ID = 2
 
-    def __init__(self, player1: Player, player2: Player):
+    def __init__(self, player1: Player, player2: Player, verbose: int = 1):
+        """
+        Initializes a battle.
+        :param player1: The first player.
+        :param player2: The second player.
+        :param verbose: 0 for no logs. 1 for basic information only. 2 for all information.
+        """
         self.attack_queue = []
         self.player1 = player1
         self.player2 = player2
+        self.verbose = verbose
 
-    def start(self):
+    def play(self) -> Player:
         """
         Starts a battle by running it in a loop while there is no winner.
+        :return: The winning player.
         """
         self._battle_start(self.player1, self.player2)
         while True:
             # Start two turns
             for player, opponent in [[self.player1, self.player2], [self.player2, self.player1]]:
-                print_battle_screen(player, opponent)
+                if self.verbose == 2:
+                    print_battle_screen(player, opponent)
                 self._turn_start(player)
-                clear_battle_screen()
+                if self.verbose == 2:
+                    clear_battle_screen()
             # Perform attacks and get a winner
-            did_win, winner = self._turn_perform_attacks(self.player1, self.player2)
-            if did_win:
-                # Winner!
-                self._alert(winner.name + ' won!', self.player1, self.player2)
-                return winner
+            did_faint, _ = self._turn_perform_attacks(self.player1, self.player2)
+            if did_faint:
+                winner = self._check_win()
+                if winner is not None:
+                    # Winner!
+                    self._alert(winner.name + ' won!', self.player1, self.player2)
+                    return winner
             # End both players' turns and continue
             self._turn_end(self.player1)
             self._turn_end(self.player2)
+        return None
 
     ##
     # Alert
     ##
 
-    @staticmethod
-    def _alert(message: str, *players: List[Player]):
+    def _alert(self, message: str, *players: List[Player]):
         """
         Alert a message that non-AI users have to respond "OK" to.
         :param message: The message to write.
         :param players: The list of players to write the message to.
         """
-        for player in players:
-            if not player.is_ai:
-                okay(message)
-                break
+        if self.verbose == 2:
+            for player in players:
+                if not player.is_ai:
+                    okay(message)
+        elif self.verbose == 1:
+            print(message)
 
     ##
     # Battle Functions
@@ -215,7 +227,7 @@ class Battle:
         item = player.bag.item_list[item_idx]
 
         # Use the item and remove it from the player's bag
-        print("%s used a %s." % (player.name, item.name))
+        self._alert("%s used a %s." % (player.name, item.name), self.player1, self.player2)
         item.use(player, pokemon)
         player.bag.item_list.remove(item_idx)
 
@@ -250,17 +262,18 @@ class Battle:
                 switched_pokemon = player.party.get_at_index(idx)
 
                 if switched_pokemon.hp is 0:
-                    print(switched_pokemon.name + ' has fainted.')
+                    self._alert(switched_pokemon.name + ' has fainted.', player)
                 elif idx is 0:
-                    print(switched_pokemon.name + ' is currently in battle.')
+                    self._alert(switched_pokemon.name + ' is currently in battle.', player)
                 else:
-                    print('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.')
+                    self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                     player.party.make_starting(idx)
                     return True
             elif ai_pokemon_idx is not None:
                 switched_pokemon = player.party.get_at_index(ai_pokemon_idx)
-                print('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.')
+                self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                 player.party.make_starting(ai_pokemon_idx)
+                return True
             else:
                 return False
 
@@ -296,7 +309,7 @@ class Battle:
             base_damage = 40
             damage = pokemon.stats.attack / base_damage
             defense = pokemon.stats.defense / base_damage * 1 / 10
-            total_damage = min(max(1, (damage - defense)), pokemon.hp)
+            total_damage = min(max(1, damage - defense), pokemon.hp)
             pokemon.hp = pokemon.hp - total_damage
             self._alert(pokemon.name + ' hurt itself in its confusion.', player, on_player)
             if pokemon.hp is 0:
@@ -411,3 +424,20 @@ class Battle:
             else:
                 chance(0.5, lambda: self.attack_queue.append(attack_tuple),
                        lambda: self.attack_queue.insert(0, attack_tuple))
+
+    ##
+    # Progress Functions
+    ##
+
+    def _check_win(self):
+        """
+        Returns the winner, if any.
+        :return: The winning Player object.
+        """
+        player_1_won = all([ pokemon.hp == 0 for pokemon in self.player2.party.pokemon_list ])
+        player_2_won = all([ pokemon.hp == 0 for pokemon in self.player1.party.pokemon_list ])
+        if player_1_won:
+            return self.player1
+        elif player_2_won:
+            return self.player2
+        return None
