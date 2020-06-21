@@ -2,6 +2,7 @@ import requests
 import csv
 import json
 import os
+from random import shuffle
 
 entryList = []
 
@@ -37,7 +38,7 @@ for pokemon in pokemonList:
     # code regarding move_len specifically for ditto, which has 0 moves
     move_len = 4 if len(info["moves"]) >= 4 else len(info["moves"])
 
-    moves = info["moves"][:move_len]
+    moves = shuffle(info["moves"])[:move_len]
     moveList = []
     for i, move in enumerate(moves):
         move_info = requests.get(move["move"]["url"]).json()
