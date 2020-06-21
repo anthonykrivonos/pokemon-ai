@@ -70,10 +70,7 @@ for pokemon in pokemonList:
         entry["Move_%d_Status" % move_num] = ""
         entry["Move_%d_Base_Heal" % move_num] = ""
 
-    # print(name, "was good")
-
     entryList.append(entry)
-
 
 # creates the csv in cwd (likely pokemon-ai) rather than /src/data
 try:
@@ -84,3 +81,4 @@ try:
             writer.writerow(data)
 except IOError:
     print("I/O error")
+
