@@ -5,15 +5,6 @@ import os
 
 entryList = []
 
-
-csv_columns = ['Name','Type','Level', 'HP', 'Attack', 'Sp_Attack', 'Defense', 'Sp_Defense', 'Speed',
-                'Move_1_Name', 'Move_1_Base_Damage', 'Move_1_PP', 'Move_1_Type', 'Move_1_Is_Special', 'Move_1_Base_Heal', 'Move_1_Status',
-                'Move_2_Name', 'Move_2_Base_Damage', 'Move_2_PP', 'Move_2_Type', 'Move_2_Is_Special', 'Move_2_Base_Heal', 'Move_2_Status',
-                'Move_3_Name', 'Move_3_Base_Damage', 'Move_3_PP', 'Move_3_Type', 'Move_3_Is_Special', 'Move_3_Base_Heal', 'Move_3_Status',
-                'Move_4_Name', 'Move_4_Base_Damage', 'Move_4_PP', 'Move_4_Type', 'Move_4_Is_Special', 'Move_4_Base_Heal', 'Move_4_Status']
-
-
-
 pokemonList = requests.get("https://pokeapi.co/api/v2/pokemon?limit=151&offset=0").json()["results"]
 
 for pokemon in pokemonList:
@@ -43,6 +34,7 @@ for pokemon in pokemonList:
         'Speed': stats[5]
     }
 
+    # code regarding move_len specifically for ditto, which has 0 moves
     move_len = 4 if len(info["moves"]) >= 4 else len(info["moves"])
 
     moves = info["moves"][:move_len]
@@ -78,17 +70,17 @@ for pokemon in pokemonList:
         entry["Move_%d_Status" % move_num] = ""
         entry["Move_%d_Base_Heal" % move_num] = ""
 
-    print(name, "was good")
+    # print(name, "was good")
 
     entryList.append(entry)
 
 
+# creates the csv in cwd (likely pokemon-ai) rather than /src/data
 try:
     with open('pokemon.csv', 'w') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+        writer = csv.DictWriter(csvfile, fieldnames=entryList[0].keys())
         writer.writeheader()
         for data in entryList:
-            print(data["Name"])
             writer.writerow(data)
 except IOError:
     print("I/O error")
