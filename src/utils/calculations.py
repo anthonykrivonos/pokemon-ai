@@ -2,10 +2,13 @@ import sys
 from os.path import join, dirname
 
 from .chance import random_pct, chance
-from src.models import Pokemon, Move, Effectiveness, PokemonType
+from src.models import Pokemon, Move, Effectiveness, PokemonType, Player
 
 sys.path.append(join(dirname(__file__), '../..'))
 
+##
+# Move Calculations
+##
 
 def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int, Effectiveness, int):
     """
@@ -234,3 +237,34 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
         elif other_type in [PokemonType.POISON, PokemonType.STEEL, PokemonType.FIRE]:
             return Effectiveness.NOT_EFFECTIVE
     return Effectiveness.NORMAL
+
+##
+# Math
+##
+
+def outcome_func_v1(player: Player, opponent: Player) -> float:
+    """
+    Calculates the outcome value between (-1 and +1) for use in Monte Carlo Tree Search.
+    :param player: The current player.
+    :param opponent: The opposing player.
+    :return: An outcome value between -1 and +1. +1 denotes a strong win, -1 denotes a bad loss.
+    """
+    # Calculate HP differences and fainted pokemon
+    player_total_hp, opp_total_hp = 0, 0
+    hp_taken, hp_dealt = 0, 0
+    player_fainted_count, opp_fainted_count = 0, 0
+    for pokemon in player.party.pokemon_list:
+        player_total_hp += pokemon.base_hp
+        hp_taken += pokemon.base_hp - pokemon.hp
+        player_fainted_count += int(pokemon.hp == 0)
+    for pokemon in opponent.party.pokemon_list:
+        opp_total_hp += pokemon.base_hp
+        hp_dealt += pokemon.base_hp - pokemon.hp
+        opp_fainted_count += int(pokemon.hp == 0)
+
+    # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
+    hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
+    pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.party.pokemon_list) - (player_fainted_count / len(player.party.pokemon_list))**2
+    outcome = hp_perc_diff + pokemon_fainted_perc_diff
+
+    return outcome
