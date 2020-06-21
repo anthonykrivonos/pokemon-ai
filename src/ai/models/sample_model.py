@@ -1,7 +1,7 @@
 from typing import *
 
 from ..model import ModelInterface
-from src.models import Player, Move, Item
+from src.models import Player, Move, Item, Party
 
 
 class SampleModel(ModelInterface):
@@ -15,3 +15,10 @@ class SampleModel(ModelInterface):
         my_pokemon = player.party.get_starting()
         attack_move = my_pokemon.move_bank.get_move(0)
         attack(attack_move)
+
+    @staticmethod
+    def force_switch_pokemon(party: Party):
+        # Switch in the first non-fainted Pokemon
+        for i, pokemon in enumerate(party.pokemon_list):
+            if pokemon.hp != 0:
+                return i

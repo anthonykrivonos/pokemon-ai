@@ -269,10 +269,12 @@ class Battle:
                     self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                     player.party.make_starting(idx)
                     return True
-            elif ai_pokemon_idx is not None:
+            elif player.is_ai:
+                if ai_pokemon_idx is None:
+                    ai_pokemon_idx = player.model.force_switch_pokemon()
                 switched_pokemon = player.party.get_at_index(ai_pokemon_idx)
-                self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                 player.party.make_starting(ai_pokemon_idx)
+                self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                 return True
             else:
                 return False
@@ -345,20 +347,21 @@ class Battle:
             # Calculate damage
             damage, effectiveness, critical = calculate_damage(move, pokemon, on_pokemon)
 
-            # Describe the effectiveness
-            if critical is 2 and effectiveness is not Effectiveness.NO_EFFECT:
-                self._alert('A critical hit!', player, on_player)
-            if effectiveness is Effectiveness.NO_EFFECT:
-                self._alert('It has no effect on ' + on_pokemon.name + '.', player, on_player)
-            if effectiveness is Effectiveness.SUPER_EFFECTIVE:
-                self._alert('It\'s super effective!', player, on_player)
-            if effectiveness is Effectiveness.NOT_EFFECTIVE:
-                self._alert('It\'s not very effective...', player, on_player)
+            if damage > 0:
+                # Describe the effectiveness
+                if critical is 2 and effectiveness is not Effectiveness.NO_EFFECT:
+                    self._alert('A critical hit!', player, on_player)
+                if effectiveness is Effectiveness.NO_EFFECT:
+                    self._alert('It has no effect on ' + on_pokemon.name + '.', player, on_player)
+                if effectiveness is Effectiveness.SUPER_EFFECTIVE:
+                    self._alert('It\'s super effective!', player, on_player)
+                if effectiveness is Effectiveness.NOT_EFFECTIVE:
+                    self._alert('It\'s not very effective...', player, on_player)
 
-            self._alert(on_pokemon.name + ' took ' + str(damage) + ' damage.', player, on_player)
+                self._alert(on_pokemon.name + ' took ' + str(damage) + ' damage.', player, on_player)
 
-            # Lower the opposing Pokemon's HP
-            on_pokemon.hp = max(0, on_pokemon.hp - damage)
+                # Lower the opposing Pokemon's HP
+                on_pokemon.hp = max(0, on_pokemon.hp - damage)
 
             # If the move inflicts a status, perform the status effect
             if move.status:
@@ -369,6 +372,11 @@ class Battle:
                     on_pokemon.status = move.status
                     on_pokemon.status_turns = random_int(1, 7)
                 self._alert(pokemon.name + ' was ' + status_names[move.status], player, on_player)
+
+            # Heal the pokemon
+            if move.base_heal > 0:
+                on_pokemon.hp = min(pokemon.base_hp, pokemon.hp + move.base_heal)
+                self._alert(pokemon.name + ' gained ' + move.base_heal + ' HP.', player)
 
             # Check if the Pokemon fainted
             if on_pokemon.hp == 0:
