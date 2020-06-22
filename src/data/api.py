@@ -24,7 +24,7 @@ for pokemon in pokemonList:
     stats[2], stats[3] = stats[3], stats[2]
 
     entry = {
-        "Name": name,
+        "Name": name.capitalize(),
         "Type": type,
         "Level": 100,
         "HP": stats[0],
@@ -46,7 +46,7 @@ for pokemon in pokemonList:
     for i, move in enumerate(moves):
         move_info = requests.get(move["move"]["url"]).json()
 
-        move_name = move["move"]["name"]
+        move_name = move["move"]["name"].capitalize()
         move_base_damage = move_info["power"]
         move_pp = move_info["pp"]
         move_type = move_info["type"]["name"]
@@ -57,7 +57,7 @@ for pokemon in pokemonList:
         move_num = i + 1
 
         entry["Move_%d_Name" % move_num] = move_name
-        entry["Move_%d_Base_Damage" % move_num] = move_base_damage
+        entry["Move_%d_Base_Damage" % move_num] = 0 if move_base_damage is None else move_base_damage
         entry["Move_%d_PP" % move_num] = move_pp
         entry["Move_%d_Type" % move_num] = move_type
         entry["Move_%d_Is_Special" % move_num] = move_damage_class
@@ -76,7 +76,8 @@ for pokemon in pokemonList:
 
     entryList.append(entry)
 
-# creates the csv in cwd (likely pokemon-ai) rather than /src/data
+# creates the csv in cwd (likely pokemon-ai) rather than /src/data, requires manual file moving
+# (or goto the data folder to run this script)
 try:
     with open('pokemon.csv', 'w') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=entryList[0].keys())
