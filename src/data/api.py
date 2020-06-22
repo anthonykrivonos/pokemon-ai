@@ -4,11 +4,11 @@ import json
 import os
 from random import shuffle
 
-entryList = []
+entry_list = []
 
-pokemonList = requests.get("https://pokeapi.co/api/v2/pokemon?limit=151&offset=0").json()["results"]
+pokemon_list = requests.get("https://pokeapi.co/api/v2/pokemon?limit=151&offset=0").json()["results"]
 
-for pokemon in pokemonList:
+for pokemon in pokemon_list:
     name = pokemon["name"]
 
     info = requests.get(pokemon["url"]).json()
@@ -74,15 +74,15 @@ for pokemon in pokemonList:
         entry["Move_%d_Status" % move_num] = ""
         entry["Move_%d_Base_Heal" % move_num] = ""
 
-    entryList.append(entry)
+    entry_list.append(entry)
 
 # creates the csv in cwd (likely pokemon-ai) rather than /src/data, requires manual file moving
 # (or goto the data folder to run this script)
 try:
     with open('pokemon.csv', 'w') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=entryList[0].keys())
+        writer = csv.DictWriter(csvfile, fieldnames=entry_list[0].keys())
         writer.writeheader()
-        for data in entryList:
+        for data in entry_list:
             writer.writerow(data)
 except IOError:
     print("I/O error")
