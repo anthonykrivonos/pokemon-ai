@@ -86,4 +86,3 @@ try:
             writer.writerow(data)
 except IOError:
     print("I/O error")
-
