@@ -3,7 +3,7 @@ from typing import *
 from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
-from src.models import Status, status_names, Player, Pokemon, PokemonType, Move, Effectiveness, Item
+from src.models import Status, status_names, Player, PokemonType, Move, Effectiveness, Item
 from src.utils import print_battle_screen, clear, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, random_int, get_terminal_dimensions
 
 
@@ -23,33 +23,51 @@ class Battle:
         self.player1 = player1
         self.player2 = player2
         self.verbose = verbose
+        self.started = False
+        self.ended = False
+
+    def play_turn(self) -> Player:
+        """
+        Plays one turn in the battle.
+        :return: The winning player or None.
+        """
+        if not self.started:
+            self._battle_start(self.player1, self.player2)
+
+        # Start two turns
+        for player, opponent in [[self.player1, self.player2], [self.player2, self.player1]]:
+            if self.verbose == 2:
+                print_battle_screen(player, opponent)
+            self._turn_start(player)
+            if self.verbose == 2:
+                clear_battle_screen()
+
+        # Perform attacks and get a winner
+        did_faint, _ = self._turn_perform_attacks(self.player1, self.player2)
+        if did_faint:
+            winner = self._check_win()
+            if winner is not None:
+                # Winner!
+                self._alert(winner.name + ' won!', self.player1, self.player2)
+                return winner
+
+        # End both players' turns and continue
+        self._turn_end(self.player1)
+        self._turn_end(self.player2)
+
+        return None
 
     def play(self) -> Player:
         """
-        Starts a battle by running it in a loop while there is no winner.
+        Plays a whole battle by running it in a loop while there is no winner.
         :return: The winning player.
         """
+        self.started = True
         self._battle_start(self.player1, self.player2)
-        while True:
-            # Start two turns
-            for player, opponent in [[self.player1, self.player2], [self.player2, self.player1]]:
-                if self.verbose == 2:
-                    print_battle_screen(player, opponent)
-                self._turn_start(player)
-                if self.verbose == 2:
-                    clear_battle_screen()
-            # Perform attacks and get a winner
-            did_faint, _ = self._turn_perform_attacks(self.player1, self.player2)
-            if did_faint:
-                winner = self._check_win()
-                if winner is not None:
-                    # Winner!
-                    self._alert(winner.name + ' won!', self.player1, self.player2)
-                    return winner
-            # End both players' turns and continue
-            self._turn_end(self.player1)
-            self._turn_end(self.player2)
-        return None
+        winner = None
+        while winner is None:
+            winner = self.play_turn()
+        return winner
 
     ##
     # Alert
@@ -81,8 +99,9 @@ class Battle:
         player1.id = self._PLAYER_1_ID
         player2.id = self._PLAYER_2_ID
 
-        # Clear the terminal window
-        clear(get_terminal_dimensions()[1])
+        if self.verbose >= 1:
+            # Clear the terminal window
+            clear(get_terminal_dimensions()[1])
 
     ##
     # Turn Functions
@@ -138,20 +157,20 @@ class Battle:
             return False
 
         if pokemon.other_status in [Status.POISON, Status.BAD_POISON, Status.BURN]:
-            self._alert(pokemon.name + ' is ' + status_names[pokemon.status] + '.', player)
+            self._alert(pokemon.name + ' is ' + status_names[pokemon.other_status] + '.', player)
 
             pokemon.other_status_turns += 1
             if pokemon.other_status is Status.POISON:
                 damage = int(pokemon.base_hp / 16)
-                self._alert(pokemon.name + ' took ' + damage + ' damage from poison.', player)
+                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from poison.', player)
                 return self_inflict(damage)
             if pokemon.other_status is Status.BAD_POISON:
                 damage = int(pokemon.base_hp * pokemon.other_status_turns / 16)
-                self._alert(pokemon.name + ' took ' + damage + ' damage from poison.', player)
+                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from poison.', player)
                 return self_inflict(damage)
             elif pokemon.other_status is Status.BURN:
                 damage = int(pokemon.base_hp / 8)
-                self._alert(pokemon.name + ' took ' + damage + ' damage from its burn.', player)
+                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from its burn.', player)
                 return self_inflict(damage)
 
         return False
@@ -242,7 +261,7 @@ class Battle:
         :return: True if the player switches Pokemon, false otherwise.
         """
         current_pokemon = player.party.get_starting()
-        can_switch_pokemon = len(list(filter(lambda hp: hp > 0, [p.hp for p in player.party.pokemon_list]))) != 0
+        can_switch_pokemon = not all([pokemon.hp == 0 for pokemon in player.party.pokemon_list])
         if not can_switch_pokemon:
             return False
         while True:
@@ -271,9 +290,9 @@ class Battle:
                     return True
             elif player.is_ai:
                 if ai_pokemon_idx is None:
-                    ai_pokemon_idx = player.model.force_switch_pokemon()
-                switched_pokemon = player.party.get_at_index(ai_pokemon_idx)
+                    ai_pokemon_idx = player.model.force_switch_pokemon(player.party)
                 player.party.make_starting(ai_pokemon_idx)
+                switched_pokemon = player.party.get_at_index(ai_pokemon_idx)
                 self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
                 return True
             else:
@@ -344,10 +363,10 @@ class Battle:
 
             self._alert(pokemon.name + ' used ' + move.name + '!', player, on_player)
 
-            # Calculate damage
-            damage, effectiveness, critical = calculate_damage(move, pokemon, on_pokemon)
+            if move.base_damage > 0:
+                # Calculate damage
+                damage, effectiveness, critical = calculate_damage(move, pokemon, on_pokemon)
 
-            if damage > 0:
                 # Describe the effectiveness
                 if critical is 2 and effectiveness is not Effectiveness.NO_EFFECT:
                     self._alert('A critical hit!', player, on_player)
@@ -376,7 +395,7 @@ class Battle:
             # Heal the pokemon
             if move.base_heal > 0:
                 on_pokemon.hp = min(pokemon.base_hp, pokemon.hp + move.base_heal)
-                self._alert(pokemon.name + ' gained ' + move.base_heal + ' HP.', player)
+                self._alert(pokemon.name + ' gained ' + str(move.base_heal) + ' HP.', player)
 
             # Check if the Pokemon fainted
             if on_pokemon.hp == 0:
