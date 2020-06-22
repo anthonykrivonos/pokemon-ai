@@ -64,5 +64,4 @@ def get_party(*names) -> Party:
 
 def get_random_party(n=6) -> Party:
     return Party([ get_random_pokemon() for i in range(n) ])
-
     
