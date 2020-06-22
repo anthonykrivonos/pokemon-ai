@@ -94,7 +94,10 @@ def get_terminal_dimensions() -> (int, int):
     Returns the width and the height of the terminal window in characters, as a tuple.
     :return:
     """
-    return os.get_terminal_size(0)
+    try:
+        return os.get_terminal_size(0)
+    except:
+        return (30, 30)
 
 
 ##

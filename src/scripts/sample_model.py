@@ -30,4 +30,4 @@ player1 = Player("Player 1", party1, Bag())
 player2 = Player("Player 2", party2, Bag(), SampleModel)
 
 battle = Battle(player1, player2)
-battle.start()
+battle.play()

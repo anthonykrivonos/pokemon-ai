@@ -7,7 +7,7 @@ class Player:
     A Pokemon trainer with a name, Party object, and a bag. Also contains a flag denoting whether the player is AI.
     """
 
-    def __init__(self, name: str, party: Party, bag: Bag, model=None, id=0):
+    def __init__(self, name: str, party: Party, bag: Bag=Bag(), model=None, id=0):
         """
         Initializes a Player.
         :param name: The name of the player.
