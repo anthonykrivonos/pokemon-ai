@@ -4,12 +4,15 @@ import json
 import os
 from random import shuffle
 
+only_attack_moves = True
+only_common_status = True
+
 entry_list = []
 
 pokemon_list = requests.get("https://pokeapi.co/api/v2/pokemon?limit=151&offset=0").json()["results"]
 
 for pokemon in pokemon_list:
-    name = pokemon["name"]
+    name = pokemon["name"].capitalize()
 
     info = requests.get(pokemon["url"]).json()
 
@@ -24,7 +27,7 @@ for pokemon in pokemon_list:
     stats[2], stats[3] = stats[3], stats[2]
 
     entry = {
-        "Name": name.capitalize(),
+        "Name": name,
         "Type": type,
         "Level": 100,
         "HP": stats[0],
@@ -35,34 +38,42 @@ for pokemon in pokemon_list:
         'Speed': stats[5]
     }
 
+    moves = info["moves"]
+
     # code regarding move_len specifically for ditto, which has 0 moves
-    move_len = 4 if len(info["moves"]) >= 4 else len(info["moves"])
+    move_len = 4 if len(moves) >= 4 else len(moves)
 
     # shuffle availible moves before picking
-    moves = info["moves"]
     shuffle(moves)
-    moves = moves[:move_len]
+   
     moveList = []
-    for i, move in enumerate(moves):
+    i = 0
+    for move in moves:
+        if i == move_len:
+            break
+
         move_info = requests.get(move["move"]["url"]).json()
 
-        move_name = move["move"]["name"].capitalize()
-        move_base_damage = move_info["power"]
-        move_pp = move_info["pp"]
-        move_type = move_info["type"]["name"]
-        move_damage_class = move_info["damage_class"]["name"]
-        move_base_heal = move_info["meta"]["healing"]
-        move_status = move_info["meta"]["ailment"]["name"]
+        if only_attack_moves:
+            if (move_info["power"] is None) or (move_info["power"] is 0):
+                continue
+        
+        if only_common_status:
+            common_status = ["none", "poison", "infatuation", "confusion", "sleep", "paralysis", "freeze", "burn"]
+            if move_info["meta"]["ailment"]["name"] not in common_status:
+                continue
 
         move_num = i + 1
 
-        entry["Move_%d_Name" % move_num] = move_name
-        entry["Move_%d_Base_Damage" % move_num] = 0 if move_base_damage is None else move_base_damage
-        entry["Move_%d_PP" % move_num] = move_pp
-        entry["Move_%d_Type" % move_num] = move_type
-        entry["Move_%d_Is_Special" % move_num] = move_damage_class
-        entry["Move_%d_Status" % move_num] = move_status
-        entry["Move_%d_Base_Heal" % move_num] = move_base_heal
+        entry["Move_%d_Name" % move_num] = move["move"]["name"].capitalize()
+        entry["Move_%d_Base_Damage" % move_num] = move_info["power"]
+        entry["Move_%d_PP" % move_num] = move_info["pp"]
+        entry["Move_%d_Type" % move_num] = move_info["type"]["name"]
+        entry["Move_%d_Is_Special" % move_num] = move_info["damage_class"]["name"]
+        entry["Move_%d_Status" % move_num] = move_info["meta"]["ailment"]["name"]
+        entry["Move_%d_Base_Heal" % move_num] = move_info["meta"]["healing"]
+
+        i += 1
 
     for i in range(4 - move_len):
         move_num = i + move_len
