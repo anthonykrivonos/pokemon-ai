@@ -1,13 +1,14 @@
 from typing import *
 from enum import Enum
 from copy import deepcopy
-from random import random, shuffle
+from random import seed, random, shuffle
 
 from src.models import Player, Move, Item, Pokemon
 from src.battle import Battle
 from src.utils import calculations
 from src.ai import RandomModel, ModelInterface
-from src.data import get_party, get_random_party
+from src.data import get_random_party
+
 
 class MonteCarloActionType(Enum):
     ATTACK = 0
@@ -166,7 +167,12 @@ def make_tree(player: Player, other_player: Player, num_plays=1):
     root = tree.root
     root.description = 'Battle Start'
 
-    def calculate_recursive_outcomes(node: MonteCarloNode):
+    def calculate_recursive_outcomes(node: MonteCarloNode) -> int:
+        """
+        Backpropogates and updates all nodes from the top node using the sums of the leaf nodes.
+        :param node: The top/root node.
+        :return: A cumulative outcome at a given stage.
+        """
         cumulative_outcome = 0
         for child in node.children:
             cumulative_outcome += calculate_recursive_outcomes(child)
@@ -204,6 +210,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1):
             num_moves = sum([int(move.pp > 0) for move in pokemon.move_bank.moves])
             num_switches = sum([int(pkmn.hp > 0) for pkmn in node_player.party.pokemon_list]) - 1  # Account for self
 
+            seed()
             move_threshold = num_moves / (num_moves + num_switches)
             perform_move = random() < move_threshold
 
@@ -235,7 +242,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1):
                 tree_queue.insert(0, (child, deepcopy(node_other_player), deepcopy(node_player), depth + 1))
             else:
                 # Get a random pokemon
-                party = list(filter(lambda p: p[0].hp > 0, [(pkmn, i) for i, pkmn in enumerate(deepcopy(node_player.party.pokemon_list[1:]))]))
+                party = list(filter(lambda p: p[0].hp > 0, [(pkmn, i) for i, pkmn in enumerate(deepcopy(node_player.party.pokemon_list))]))[1:]
                 shuffle(party)
                 switch_pokemon, i = party[0]
 
@@ -248,15 +255,15 @@ def make_tree(player: Player, other_player: Player, num_plays=1):
                         switch_pokemon_at_idx(i)
 
                     model.take_turn = take_turn
-                    model.force_switch_pokemon = lambda _: i
+                    model.force_switch_pokemon = lambda _: i - 1
 
                     # Add the attack node
                     child = MonteCarloNode(node_player.id, MonteCarloActionType.ATTACK, i, model, 0,
                                            "Switched %s with %s." % (pokemon.name, switch_pokemon.name))
-                    node.add_child(child, pokemon)
+                    node.add_child(child, switch_pokemon)
                 else:
                     # If the node has already been visited, visit it again
-                    child = node.get_child(pokemon, MonteCarloActionType.SWITCH, i)
+                    child = node.get_child(switch_pokemon, MonteCarloActionType.SWITCH, i)
                     child.visit()
                 tree_queue.insert(0, (child, deepcopy(node_other_player), deepcopy(node_player), depth + 1))
 
@@ -267,14 +274,14 @@ def make_tree(player: Player, other_player: Player, num_plays=1):
 
 
 if __name__ == "__main__":
-    party1 = get_party('venonat')
-    party2 = get_party('graveler')
+    party1 = get_random_party()
+    party2 = get_random_party()
     print("%s vs. %s" % (', '.join([pkmn.name for pkmn in party1.pokemon_list]), ', '.join([pkmn.name for pkmn in party2.pokemon_list])))
 
     player1 = Player("Player 1", party1, None, RandomModel, id=1)
     player2 = Player("Player 2", party2, None, RandomModel, id=2)
 
-    tree = make_tree(player1, player2, 100)
+    tree = make_tree(player1, player2, 5)
     # tree.pre_order_print()
 
     # print("Next move: %s" % tree.get_next_action().description)
