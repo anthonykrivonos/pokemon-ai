@@ -1,10 +1,37 @@
 import sys
+import math
 from os.path import join, dirname
 
 from .chance import random_pct, chance
 from src.models import Pokemon, Move, Effectiveness, PokemonType, Player
 
 sys.path.append(join(dirname(__file__), '../..'))
+
+##
+# Stat Adjustment for Level
+##
+
+def stat_growth(pokemon: dict):
+    """
+    Adjust a Pokemon's stats based on their base stats and level
+    Formulas based on https://bulbapedia.bulbagarden.net/wiki/Statistic, Gen I & II
+    :param pokemon: The pokemon in dictionary entry form as from src/data/api.py
+    """
+    def round_down(n, decimals=0):
+        multiplier = 10 ** decimals
+        return math.floor(n * multiplier) / multiplier
+
+    def other_stat_formula(stat: int):
+        return round_down((stat * 2 * 100 / 100 ) + 5)
+
+    level = pokemon["Level"]
+
+    pokemon["HP"] = int(round_down((pokemon["HP"] * 2 * level / 100) + level + 10))
+    pokemon["Attack"] = int(other_stat_formula(pokemon["Attack"]))
+    pokemon["Sp_Attack"] = int(other_stat_formula(pokemon["Sp_Attack"]))
+    pokemon["Defense"] = int(other_stat_formula(pokemon["Defense"]))
+    pokemon["Sp_Defense"] = int(other_stat_formula(pokemon["Sp_Defense"]))
+    pokemon["Speed"] = int(other_stat_formula(pokemon["Speed"]))
 
 ##
 # Move Calculations

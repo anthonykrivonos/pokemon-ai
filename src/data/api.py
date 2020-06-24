@@ -3,6 +3,7 @@ import csv
 import json
 import os
 from random import shuffle
+from src.utils.calculations import stat_growth
 
 only_attack_moves = True
 only_common_status = True
@@ -37,6 +38,8 @@ for pokemon in pokemon_list:
         'Sp_Defense': stats[4], 
         'Speed': stats[5]
     }
+
+    stat_growth(entry)
 
     moves = info["moves"]
 
