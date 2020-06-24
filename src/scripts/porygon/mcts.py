@@ -1,11 +1,10 @@
 from typing import *
-from enum import Enum
 from copy import deepcopy
 
 from src.models import Player, Move, Item
 from src.battle import Battle
 from src.utils import calculations
-from src.ai import RandomModel
+from src.ai import RandomModel, MonteCarloRandomModel, ModelInterface, MonteCarloActionType
 from src.data import get_random_party
 
 
@@ -57,19 +56,57 @@ class MonteCarloTree:
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
+
+
+
 class MonteCarloNode:
 
-    def __init__(self, model=None, outcome=0, description=""):
+    def __init__(self, player_id: int=0, action_type:MonteCarloActionType=-1, action_index:int=1, model:ModelInterface=None, outcome=0, description=""):
         """
         Initializes a MonteCarloNode.
+        :param player_id: The ID of the player performing this action.
+        :param action_type: The type of action taken by this node.
+        :param action_index: The index of the action taken by this node.
         :param model: The model to use.
         :param outcome: The total outcome of all children of this node.
         :param description: The description of the action at the node.
         """
+        self.player_id = player_id
+        self.action_type = action_type
+        self.action_index = action_index
         self.model = model
         self.outcome = outcome
         self.children = []
+        self.childrenMap = {}
         self.description = description
+        self.visits = 1
+
+    def visit(self):
+        """
+        Visits this node.
+        """
+        self.visits += 1
+
+    def get_child(self, action_type:MonteCarloActionType, action_index:int):
+        """
+        Is this node a child of the current node?
+        :param action_type: The type of the action of the child.
+        :param action_index: The index of the action of the child.
+        :return: Returns the child with the specified action_type and action_index.
+        """
+        if self.has_child(action_type, action_index):
+            child_index = self.childrenMap[action_type][action_index]
+            return self.children[child_index]
+        return None
+
+    def has_child(self, action_type:MonteCarloActionType, action_index:int):
+        """
+        Is this node a child of the current node?
+        :param action_type: The type of the action of the child.
+        :param action_index: The index of the action of the child.
+        :return: Returns true if the provided node is a child of the current node.
+        """
+        return action_type in self.childrenMap and action_index in self.childrenMap[action_type]
 
     def add_child(self, node):
         """
@@ -77,16 +114,21 @@ class MonteCarloNode:
         :param node: The node to add.
         """
         self.children.append(node)
+        node_index = len(self.children) - 1
+        if node.action_type not in self.childrenMap:
+            self.childrenMap[node.action_type] = { node.action_index: node_index }
+        else:
+            self.childrenMap[node.action_type][node.action_index] = node_index
 
     def __str__(self):
         """
         Converts the node to a string.
         :return: The string version of the node.
         """
-        return str(self.description, self.outcome)
+        return str((self.description, self.outcome))
 
 
-def make_tree(player: Player, other_player: Player):
+def make_tree(player: Player, other_player: Player, num_plays=1):
     """
     Creates a MonteCarloTree of actions for the given battle.
     :param player: The player to find actions for.
@@ -94,65 +136,81 @@ def make_tree(player: Player, other_player: Player):
     :return: A MonteCarloTree.
     """
 
-    # Make other model be entirely random
+    # Make both models random
+    player.model = RandomModel
     other_player.model = RandomModel
 
     # Create tree
     tree = MonteCarloTree()
     root = tree.root
+    root.description = 'Battle Start'
 
-    def next_turn(node: MonteCarloNode, player: Player, other_player: Player, did_just_switch=False):
+    # Keep track of nodes being added into the tree
+    tree_queue = [(root, player, other_player)]
 
-        # Get currently battling Pokemon
+    while len(tree_queue) > 0:
+        # Store useful variables
+        node, node_player, node_other_player = tree_queue[0]
+
         pokemon = player.party.get_starting()
+        # Pop the node from the queue
+        del tree_queue[0]
 
-        # Add attack-move nodes
-        for attack in pokemon.move_bank.moves:
+        # Battle if on an even layer
+        if node.player_id == player.id:
+            # Simulate the battle
+            battle = Battle(node_player, node_other_player, 0)
+            winner = battle.play_turn()
+            # Get battle outcome
+            if winner is not None:
+                # We assume that player 1 goes second, since should_perform_battle is true on even layers
+                outcome = calculations.outcome_func_v1(player, other_player)
+                node.outcome = outcome
+                print("%s won" % winner.name)
+                continue
+
+        # Add attack actions
+        for i, attack in enumerate(pokemon.move_bank.moves):
             if attack.pp == 0:
                 continue
 
-            # Create an attacking model
-            model = RandomModel
-            def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None], ____: Callable[[int], None]):
-                do_move(attack)
-            model.take_turn = take_turn
-
-            # Add the attack node
-            node.add_child(MonteCarloNode(model, 0, "%s used %s." % (pokemon.name, attack.name)))
-
-        # Add switch-move nodes
-        if not did_just_switch:
-            for i, switch_pokemon in enumerate(player.party.pokemon_list):
-                if switch_pokemon.hp == 0 or i == 0:
-                    continue
-
-                # Create a switching model
+            if not node.has_child(MonteCarloActionType.ATTACK, i):
+                # Make the bot attack on this child's turn
                 model = RandomModel
-                def take_turn(_: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]):
-                    switch_pokemon_at_idx(i)
+                def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None], ____: Callable[[int], None]):
+                    do_move(attack)
                 model.take_turn = take_turn
-                model.force_switch_pokemon = lambda _: i
 
                 # Add the attack node
-                node.add_child(MonteCarloNode(model, 0, "Switched %s with %s." % (pokemon.name, switch_pokemon.name)))
-
-        # Recur through children
-        for child in node.children:
-            player.model = child.model
-
-            temp_player = deepcopy(player)
-            temp_other_player = deepcopy(other_player)
-
-            battle = Battle(temp_player, temp_other_player, 1)
-            winner = battle.play_turn()
-
-            # Get battle outcome
-            if winner is not None:
-                outcome = calculations.outcome_func_v1(player, other_player)
-                # print("%s won with outcome %1.5f" % (winner.name, outcome))
-                child.outcome = outcome
+                child = MonteCarloNode(player.id, MonteCarloActionType.ATTACK, i, model, 0, "%s used %s." % (pokemon.name, attack.name))
+                node.add_child(child)
             else:
-                next_turn(child, battle.player1, battle.player2, not did_just_switch)
+                # If the node has already been visited, visit it again
+                child = node.get_child(MonteCarloActionType.ATTACK, i)
+                child.visit()
+            tree_queue.insert(0, (child, deepcopy(other_player), deepcopy(player)))
+
+        # # Add switch actions
+        # for i, switch_pokemon in enumerate(player.party.pokemon_list):
+        #     if switch_pokemon.hp == 0 or i == 0:
+        #         continue
+        #
+        #     if not node.has_child(MonteCarloActionType.SWITCH, i):
+        #         # Make the bot switch on this child's turn
+        #         model = RandomModel
+        #         def take_turn(_: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]):
+        #             switch_pokemon_at_idx(i)
+        #         model.take_turn = take_turn
+        #         model.force_switch_pokemon = lambda _: i
+        #
+        #         # Add the attack node
+        #         child = MonteCarloNode(player.id, MonteCarloActionType.ATTACK, i, model, 0, "Switched %s with %s." % (pokemon.name, switch_pokemon.name))
+        #         node.add_child(child)
+        #     else:
+        #         # If the node has already been visited, visit it again
+        #         child = node.get_child(MonteCarloActionType.SWITCH, i)
+        #         child.visit()
+        #     tree_queue.insert(0, (child, deepcopy(other_player), deepcopy(player)))
 
     def calculate_recursive_outcomes(node: MonteCarloNode):
         cumulative_outcome = 0
@@ -162,25 +220,23 @@ def make_tree(player: Player, other_player: Player):
         node.outcome = cumulative_outcome
         return cumulative_outcome
 
-    next_turn(root, player, other_player)
     calculate_recursive_outcomes(root)
 
     return tree
 
 
 if __name__ == "__main__":
-
     party1 = get_random_party(1)
     party2 = get_random_party(1)
 
-    player1 = Player("Player 1", party1, None, RandomModel)
-    player2 = Player("Player 2", party2, None, RandomModel)
+    player1 = Player("Player 1", party1, None, RandomModel, id=1)
+    player2 = Player("Player 2", party2, None, RandomModel, id=2)
 
-    tree = make_tree(player1, player2)
-    # tree.pre_order_print()
+    tree = make_tree(player1, player2, 1)
+    tree.pre_order_print()
 
     # print("Next move: %s" % tree.get_next_action().description)
     outcome_probs = tree.get_action_probabilities()
-    print("%s vs. %s" % (party1.get_starting().name, party2.get_starting().name))
+    print("%s vs. %s" % (', '.join([pkmn.name for pkmn in party1.pokemon_list]), ', '.join([pkmn.name for pkmn in party2.pokemon_list])))
     for prob in outcome_probs:
         print("Outcome: %1.4f, Prob: %1.4f, Move: %s" % prob)

@@ -76,5 +76,5 @@ def get_party(*names) -> Party:
     return Party([ get_pokemon(name) for name in names ])
 
 
-def get_random_party(n=6) -> Party:
-    return Party([ get_random_pokemon() for i in range(n) ])
+def get_random_party(n=3) -> Party:
+    return Party([ get_random_pokemon() for _ in range(n) ])
