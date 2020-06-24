@@ -265,6 +265,6 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
     pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.party.pokemon_list) - (player_fainted_count / len(player.party.pokemon_list))**2
-    outcome = hp_perc_diff + pokemon_fainted_perc_diff
+    outcome = (hp_perc_diff + pokemon_fainted_perc_diff) / 2
 
     return outcome
