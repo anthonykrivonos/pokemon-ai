@@ -2,6 +2,7 @@ import requests
 import csv
 import json
 import os
+import math
 from random import shuffle
 
 only_attack_moves = True
@@ -37,6 +38,30 @@ for pokemon in pokemon_list:
         'Sp_Defense': stats[4], 
         'Speed': stats[5]
     }
+
+    def stat_growth(pokemon: dict):
+        """
+        Adjust a Pokemon's stats based on their base stats and level
+        Formulas based on https://bulbapedia.bulbagarden.net/wiki/Statistic, Gen I & II
+        :param pokemon: The pokemon in dictionary entry form
+        """
+        def round_down(n, decimals=0):
+            multiplier = 10 ** decimals
+            return math.floor(n * multiplier) / multiplier
+
+        def other_stat_formula(stat: int):
+            return round_down((stat * 2 * 100 / 100 ) + 5)
+
+        level = pokemon["Level"]
+
+        pokemon["HP"] = int(round_down((pokemon["HP"] * 2 * level / 100) + level + 10))
+        pokemon["Attack"] = int(other_stat_formula(pokemon["Attack"]))
+        pokemon["Sp_Attack"] = int(other_stat_formula(pokemon["Sp_Attack"]))
+        pokemon["Defense"] = int(other_stat_formula(pokemon["Defense"]))
+        pokemon["Sp_Defense"] = int(other_stat_formula(pokemon["Sp_Defense"]))
+        pokemon["Speed"] = int(other_stat_formula(pokemon["Speed"]))
+    
+    stat_growth(entry)
 
     moves = info["moves"]
 
