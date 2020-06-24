@@ -24,7 +24,7 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
             pokemon[row[0]] = row
             pokemon_names.append(row[0])
 
-    info = pokemon[name_or_id.lower()] if isinstance(name_or_id, str) else pokemon[pokemon_names[name_or_id]]
+    info = pokemon[name_or_id.lower().capitalize()] if isinstance(name_or_id, str) else pokemon[pokemon_names[name_or_id]]
 
     type_map = {
         "normal": 0,
@@ -76,5 +76,5 @@ def get_party(*names) -> Party:
     return Party([ get_pokemon(name) for name in names ])
 
 
-def get_random_party(n=6) -> Party:
-    return Party([ get_random_pokemon() for i in range(n) ])
+def get_random_party(n=3) -> Party:
+    return Party([ get_random_pokemon() for _ in range(n) ])
