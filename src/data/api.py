@@ -2,6 +2,7 @@ import requests
 import csv
 import json
 import os
+import math
 from random import shuffle
 
 only_attack_moves = True

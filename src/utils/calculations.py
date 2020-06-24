@@ -1,5 +1,4 @@
 import sys
-import math
 from os.path import join, dirname
 
 from .chance import random_pct, chance
