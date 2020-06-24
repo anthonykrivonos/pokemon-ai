@@ -3,7 +3,7 @@ import csv
 import json
 import os
 from random import shuffle
-from src.utils.calculations import stat_growth
+from src.utils import stat_growth
 
 only_attack_moves = True
 only_common_status = True
