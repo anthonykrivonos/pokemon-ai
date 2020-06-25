@@ -9,6 +9,7 @@ from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
 
+from pptree import *
 
 class MonteCarloActionType(Enum):
     ATTACK = 0
@@ -33,7 +34,9 @@ class MonteCarloTree:
             for child in node.children:
                 pre_order(child)
 
-        pre_order(self.root)
+        #pre_order(self.root)
+
+        print_tree(self.root, "children")
 
     def get_next_action(self):
         """
@@ -152,7 +155,7 @@ class MonteCarloNode:
         Converts the node to a string.
         :return: The string version of the node.
         """
-        return str((self.description, self.outcome))
+        return str((self.description, self.outcome, self.visits))
 
 
 def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
@@ -216,7 +219,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             # Return the move node
             return MonteCarloNode(node_player.id, action_type, action_descriptor, model, 0, description)
 
-        def insert_node(node: MonteCarloNode, parent: MonteCarloNode, node_player: Player, node_other_player: Player, visit=True) -> MonteCarloNode:
+        def insert_node(node: MonteCarloNode, parent: MonteCarloNode, node_player: Player, node_other_player: Player, ac_add=True, visit=True) -> MonteCarloNode:
             """
             Adds an attack or switch move node to a tree.
             :param node: The current node.
@@ -229,7 +232,8 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
             if not child_exists:
                 child = node
-                parent.add_child(child, pokemon)
+                if ac_add:
+                    parent.add_child(child, pokemon)
             else:
                 # If the node has already been visited, visit it again
                 child = parent.get_child(pokemon, node.action_type, node.action_descriptor)
@@ -239,7 +243,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                 child.visit()
 
             # Add them to the queue in switched order
-            tree_queue.append((child, node_other_player.copy(), node_player.copy()))
+            tree_queue.append((child, node_player.copy(), node_other_player.copy()))
             return child
 
         ### FIND THE LEAF 
@@ -291,6 +295,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
         # Traverse and find the leaf to recur from
         leaf = traverse(root)
         tree_queue.append((leaf, player.copy(), other_player.copy()))
+        fin_outcome = 0
 
         while len(tree_queue) > 0:
             # Store useful variables
@@ -310,7 +315,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                     # We assume that player 1 goes second, since should_perform_battle is true on even layers
                     outcome = calculations.outcome_func_v1(node_player, node_other_player)
                     node.outcome = outcome
-                    node.is_leaf = True
+                    fin_outcome = outcome
                     continue
 
             # Decide whether to attack or switch
@@ -329,7 +334,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                 _, attack_idx = attacks[0]
 
                 # Add attack
-                insert_node(create_node(node_player, MonteCarloActionType.ATTACK, attack_idx), node, node_player, node_other_player)
+                insert_node(create_node(node_player, MonteCarloActionType.ATTACK, attack_idx), node, node_player, node_other_player, ac_add=False)
             else:
                 # Get a random pokemon
                 party = list(filter(lambda p: p[0].hp > 0,
@@ -338,7 +343,9 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                 _, switch_idx = party[0]
 
                 # Add switch
-                insert_node(create_node(node_player, MonteCarloActionType.SWITCH, switch_idx), node, node_player, node_other_player)
+                insert_node(create_node(node_player, MonteCarloActionType.SWITCH, switch_idx), node, node_player, node_other_player, ac_add=False)
+
+        leaf.children = []
 
         def calculate_recursive_outcomes(node: MonteCarloNode) -> int:
             """
@@ -353,22 +360,38 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             node.outcome = cumulative_outcome
             return cumulative_outcome
 
+        def backprop(node: MonteCarloNode, outcome):
+            """
+            Backpropogates and updates all nodes from the top node using the sums of the leaf nodes.
+            :param node: The leaf node to start backpropgating from
+            ;param outcome: The calculated outcome
+            :return: None
+            """
+            node.outcome += outcome
+            node.visits += 1
+            if node.parent is not None:
+                backprop(node.parent, outcome)
+
+
         # On each run, calculate the outcomes via backpropagation
-        calculate_recursive_outcomes(root)
+        #calculate_recursive_outcomes(root)
+        backprop(leaf, fin_outcome)
+
+        print("Simulation", current_num_plays, "complete")
 
     return tree
 
 
 if __name__ == "__main__":
-    party1 = get_party("magmar", "arcanine", "ninetales")
-    party2 = get_party("bulbasaur", "butterfree", "ivysaur")
+    party1 = get_party("charizard")
+    party2 = get_party("bulbasaur")
     print("%s vs. %s" % (', '.join([pkmn.name for pkmn in party1.pokemon_list]), ', '.join([pkmn.name for pkmn in party2.pokemon_list])))
 
     player1 = Player("Player 1", party1, None, RandomModel, id=1)
     player2 = Player("Player 2", party2, None, RandomModel, id=2)
 
-    tree = make_tree(player1, player2, 100)
-    # tree.pre_order_print()
+    tree = make_tree(player1, player2, 8)
+    tree.pre_order_print()
 
     # print("Next move: %s" % tree.get_next_action().description)
     outcome_probs = tree.get_action_probabilities()

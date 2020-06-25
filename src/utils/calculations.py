@@ -39,9 +39,9 @@ def upper_confidence_bounds(node_wins, node_visits, parent_visits, c=sqrt(2)) ->
     :param parent_visits: Number of visits for the parent node.
     :param c: The exploitation parameter.
     """
-    print("node_wins:     %d" % node_wins)
-    print("node_visits:   %d" % node_visits)
-    print("parent_visits: %d" % parent_visits)
+    #print("node_wins:     %d" % node_wins)
+    #print("node_visits:   %d" % node_visits)
+    #print("parent_visits: %d" % parent_visits)
     return (node_wins / node_visits) + c * sqrt(log(parent_visits) / node_visits)
 
 
@@ -277,9 +277,15 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
         hp_dealt += pokemon.base_hp - pokemon.hp
         opp_fainted_count += int(pokemon.hp == 0)
 
+    # lost
+    if player_fainted_count == len(player.party.pokemon_list):
+        outcome = .2
+    else:
+        outcome = .8
+
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
     pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.party.pokemon_list) - (player_fainted_count / len(player.party.pokemon_list))**2
-    outcome = ((hp_perc_diff + pokemon_fainted_perc_diff) / 2 + 1) / 2
+    scaler = (hp_perc_diff + pokemon_fainted_perc_diff) / 10
 
-    return outcome
+    return outcome + scaler
