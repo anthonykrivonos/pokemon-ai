@@ -1,6 +1,8 @@
 from .party import Party
 from ..bag.bag import Bag
 
+from copy import deepcopy
+
 
 class Player:
     """
@@ -22,6 +24,9 @@ class Player:
         self.model = model
         self.id = id
         self.is_ai = model is not None
+
+    def copy(self):
+        return deepcopy(self)
 
     def to_row(self):
         """

@@ -6,6 +6,7 @@ import random
 from typing import *
 from os.path import join, dirname
 
+from src.utils import config
 from src.models import Party, Move, MoveBank, Pokemon, Stats, Status
 
 sys.path.append(join(dirname(__file__), '../..'))
@@ -76,5 +77,5 @@ def get_party(*names) -> Party:
     return Party([ get_pokemon(name) for name in names ])
 
 
-def get_random_party(n=3) -> Party:
+def get_random_party(n=config.POKEMON_PARTY_LIMIT) -> Party:
     return Party([ get_random_pokemon() for _ in range(n) ])
