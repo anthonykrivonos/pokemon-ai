@@ -1,5 +1,6 @@
 import sys
 from os.path import join, dirname
+from math import sqrt, log
 
 from .chance import random_pct, chance
 from src.models import Pokemon, Move, Effectiveness, PokemonType, Player
@@ -28,6 +29,20 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     damage = max(0, int(((((((2 * pokemon.level) / 5) + 2) * move.base_damage * (attack / defense)) / 50) + 2) * modifier))
     damage = damage if damage < on_pokemon.hp else on_pokemon.hp
     return damage, effectiveness, critical
+
+
+def upper_confidence_bounds(node_wins, node_visits, parent_visits, c=sqrt(2)) -> float:
+    """
+    Returns the UCB stat for Monte Carlo Search Tree (MCST) exploration.
+    :param node_wins: Number of wins for the current node.
+    :param node_visits: Number of visits for the current node.
+    :param parent_visits: Number of visits for the parent node.
+    :param c: The exploitation parameter.
+    """
+    print("node_wins:     %d" % node_wins)
+    print("node_visits:   %d" % node_visits)
+    print("parent_visits: %d" % parent_visits)
+    return (node_wins / node_visits) + c * sqrt(log(parent_visits) / node_visits)
 
 
 def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
@@ -244,10 +259,10 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
 
 def outcome_func_v1(player: Player, opponent: Player) -> float:
     """
-    Calculates the outcome value between (-1 and +1) for use in Monte Carlo Tree Search.
+    Calculates the outcome value on [0, 1] for use in Monte Carlo Tree Search.
     :param player: The current player.
     :param opponent: The opposing player.
-    :return: An outcome value between -1 and +1. +1 denotes a strong win, -1 denotes a bad loss.
+    :return: An outcome value between 0 and 1. 1 denotes a strong win, 0 denotes a bad loss.
     """
     # Calculate HP differences and fainted pokemon
     player_total_hp, opp_total_hp = 0, 0
@@ -265,6 +280,6 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
     pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.party.pokemon_list) - (player_fainted_count / len(player.party.pokemon_list))**2
-    outcome = (hp_perc_diff + pokemon_fainted_perc_diff) / 2
+    outcome = ((hp_perc_diff + pokemon_fainted_perc_diff) / 2 + 1) / 2
 
     return outcome
