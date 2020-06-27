@@ -17,7 +17,10 @@ class MoveBank:
         Initialize a MoveBank.
         :param moves: A list of moves in the bank.
         """
-        self.moves = moves
+        self._moves = moves
+
+    def get_as_list(self) -> List[Move]:
+        return self._moves
 
     def add_move(self, move: Move, idx_to_delete: int = -1):
         """
@@ -26,11 +29,11 @@ class MoveBank:
         :param idx_to_delete: The index to delete.
         :raises: MoveCapacityError if the move bank is full and no move is being deleted.
         """
-        if len(self.moves) < self._CAPACITY:
-            self.moves.append(move)
-        elif idx_to_delete is not -1:
-            self.moves.pop(idx_to_delete)
-            self.moves.insert(idx_to_delete, move)
+        if len(self._moves) < self._CAPACITY:
+            self._moves.append(move)
+        elif idx_to_delete != -1:
+            self._moves.pop(idx_to_delete)
+            self._moves.insert(idx_to_delete, move)
         else:
             raise MoveCapacityError('Could not add new move.')
 
@@ -40,8 +43,8 @@ class MoveBank:
         :param idx_to_delete: The index to delete.
         :raises: MoveDeleteError if the move could not be deleted.
         """
-        if idx_to_delete < len(self.moves):
-            self.moves.pop(idx_to_delete)
+        if idx_to_delete < len(self._moves):
+            self._moves.pop(idx_to_delete)
         else:
             raise MoveDeleteError('Could not delete the move.')
 
@@ -51,7 +54,7 @@ class MoveBank:
         :param idx: The index to get the move from.
         :raises: MoveGetError if the move does not exist at the given index.
         """
-        if len(self.moves) > idx >= 0:
-            return self.moves[idx]
+        if len(self._moves) > idx >= 0:
+            return self._moves[idx]
         else:
             raise MoveGetError('Could not get the move.')

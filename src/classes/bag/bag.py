@@ -13,4 +13,7 @@ class Bag:
         Initializes a Bag.
         :param item_list: A list of items in the bag.
         """
-        self.item_list = item_list
+        self._item_list = item_list
+
+    def get_as_list(self) -> List[Item]:
+        return self._item_list

@@ -3,13 +3,14 @@ from enum import Enum
 from copy import deepcopy
 from random import seed, random, shuffle
 
-from src.models import Player, Move, Item, Pokemon
+from src.classes import Player, Move, Item, Pokemon
 from src.battle import Battle
 from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
 
 from pptree import print_tree
+
 
 class MonteCarloActionType(Enum):
     ATTACK = 0
@@ -47,7 +48,7 @@ class MonteCarloNode:
         """
         self.visits += 1
 
-    def get_child(self, pokemon: Pokemon, action_type: MonteCarloActionType, action_descriptor: Union[int, str]):
+    def get_child(self, pokemon: Pokemon, action_type: MonteCarloActionType, action_descriptor: int):
         """
         Is this node a child of the current node?
         :param pokemon: The pokemon the node concerns.
@@ -61,7 +62,7 @@ class MonteCarloNode:
             return self.children[node_index]
         return None
 
-    def has_child(self, pokemon: Pokemon, action_type: MonteCarloActionType, action_descriptor: Union[int, str]):
+    def has_child(self, pokemon: Pokemon, action_type: MonteCarloActionType, action_descriptor: int):
         """
         Is this node a child of the current node?
         :param pokemon: The pokemon the node concerns.
@@ -95,7 +96,7 @@ class MonteCarloNode:
         :param action_type: A MonteCarloActionType.
         :return: A tokenized string.
         """
-        return pokemon.name + "-" + str(action_type)
+        return "%d-%s" % (pokemon.get_id(), action_type.name)
 
     def __str__(self):
         """
@@ -126,7 +127,7 @@ class MonteCarloTree:
         """
         max_outcome = -1
         max_child = None
-        for child, _ in self.root.children:
+        for child in self.root.children:
             if child.outcome > max_outcome:
                 max_outcome = child.outcome
                 max_child = child
@@ -146,12 +147,8 @@ class MonteCarloTree:
         for child in self.root.children:
             denom = outcome_sum + max_outcome * len(self.root.children)
             prob = (max_outcome + child.outcome) / denom if denom != 0 else 1 / len(self.root.children)
-            outcome_probs.append((child.outcome, prob, child.description))
+            outcome_probs.append((child.outcome, prob, child._description))
         return sorted(outcome_probs, key=lambda o: o[1])
-
-
-def swap(a: Any, b: Any):
-    return b, a
 
 
 def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
@@ -160,12 +157,15 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
     :param player: The player to find actions for.
     :param other_player: The opposing player.
     :param num_plays: The number of Monte Carlo simulations to perform.
+    :param verbose: Should the algorithm announce its current actions?
     :return: A MonteCarloTree.
     """
 
-    # Make both models random
-    player.model = RandomModel
-    other_player.model = RandomModel
+    # Copy players and make both classes random
+    player = player.copy()
+    other_player = other_player.copy()
+    player.set_model(RandomModel)
+    other_player.set_model(RandomModel)
 
     # Create tree
     tree = MonteCarloTree()
@@ -179,12 +179,11 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
         # Keep track of nodes being added into the tree
         tree_queue = []
 
-        def backprop(node: MonteCarloNode, outcome):
+        def backprop(node: MonteCarloNode, outcome: int) -> None:
             """
             Backpropogates and updates all nodes from the top node using the sums of the leaf nodes.
             :param node: The leaf node to start backpropgating from
             ;param outcome: The calculated outcome
-            :return: None
             """
             node.outcome += outcome
             node.visit()
@@ -199,17 +198,17 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             :param index: The index of the attack or Pokemon to switch to.
             """
             # The currently battling pokemon
-            pokemon = node_player.party.get_starting()
+            pokemon = node_player.get_party().get_starting()
 
             # Create action descriptor
             if action_type == MonteCarloActionType.ATTACK:
-                attack = pokemon.move_bank.get_move(index)
+                attack = pokemon.get_move_bank().get_move(index)
                 action_descriptor = index
-                description = "%s used %s." % (pokemon.name, attack.name)
+                description = "%s used %s." % (pokemon.get_name(), attack.get_name())
             else:
-                switch_pokemon = node_player.party.get_at_index(index)
-                action_descriptor = switch_pokemon.name
-                description = "%s switched out with %s." % (pokemon.name, switch_pokemon.name)
+                switch_pokemon = node_player.get_party().get_at_index(index)
+                action_descriptor = switch_pokemon.get_id()
+                description = "%s switched out with %s." % (pokemon.get_name(), switch_pokemon.get_name())
 
             # Make the bot move on this child's turn
             model = RandomModel
@@ -227,7 +226,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             model.take_turn = take_turn
 
             # Return the move node
-            return MonteCarloNode(node_player.id, action_type, action_descriptor, model, 0, description)
+            return MonteCarloNode(node_player.get_id(), action_type, action_descriptor, model, 0, description)
 
         def insert_node(node: MonteCarloNode, parent: MonteCarloNode, node_player: Player, node_other_player: Player, is_simulating=False) -> MonteCarloNode:
             """
@@ -237,7 +236,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             :param node_player: The player object at the current node.
             :param node_other_player: The other player object at the current node.
             """
-            pokemon = node_player.party.get_starting()
+            pokemon = node_player.get_party().get_starting()
             child_exists = parent.has_child(pokemon, node.action_type, node.action_descriptor)
 
             if not child_exists:
@@ -263,18 +262,18 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             """
 
             def fully_expanded(node: MonteCarloNode, player: Player, other_player: Player):
-                pokemon = player.party.get_starting()
+                pokemon = player.get_party().get_starting()
 
                 # Creates all children for node if they do not already exist, and checks visit (0 is unvisited)
-                attacks = list(filter(lambda m: m[0].pp > 0, 
-                                      [(move, i) for i, move in enumerate(pokemon.move_bank.moves)]))
+                attacks = list(filter(lambda m: m[0].is_available(),
+                                      [(move, i) for i, move in enumerate(pokemon.get_move_bank().get_as_list())]))
                 for _, attack_idx in attacks:
                     node_player_new = player.copy()
                     child = create_node(node_player_new, MonteCarloActionType.ATTACK, attack_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
-                switches = list(filter(lambda p: p[0].hp > 0,
-                                       [(pkmn, i) for i, pkmn in enumerate(player.party.pokemon_list)]))[1:]
+                switches = list(filter(lambda p: not p[0].is_fainted(),
+                                       [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
@@ -308,13 +307,13 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
         while len(tree_queue) > 0:
             # Store useful variables
             node, node_player, node_other_player = tree_queue[0]
-            pokemon = node_player.party.get_starting()
+            pokemon = node_player.get_party().get_starting()
 
             # Pop the node from the queue
             del tree_queue[0]
 
             # Battle if on an even layer
-            if node != root and node.player_id == player.id:
+            if node != root and node.player_id == player.get_id():
                 # Simulate the battle
                 battle = Battle(node_player, node_other_player, 2 if verbose else 0)
                 winner = battle.play_turn()
@@ -327,8 +326,8 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                     continue
 
             # Decide whether to attack or switch
-            num_moves = sum([int(move.pp > 0) for move in pokemon.move_bank.moves])
-            num_switches = sum([int(pkmn.hp > 0) for pkmn in node_player.party.pokemon_list]) - 1  # Account for self
+            num_moves = sum([int(move.is_available()) for move in pokemon.get_move_bank().get_as_list()])
+            num_switches = sum([int(not pkmn.is_fainted()) for pkmn in node_player.get_party().get_as_list()]) - 1  # Account for self
 
             seed()
             move_threshold = num_moves / (num_moves + num_switches)
@@ -336,8 +335,8 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
             if perform_attack:
                 # Get a random move
-                attacks = list(filter(lambda m: m[0].pp > 0,
-                                      [(move, i) for i, move in enumerate(deepcopy(pokemon.move_bank.moves))]))
+                attacks = list(filter(lambda m: m[0].is_available(),
+                                      [(move, i) for i, move in enumerate(deepcopy(pokemon.get_move_bank().get_as_list()))]))
                 shuffle(attacks)
                 _, attack_idx = attacks[0]
 
@@ -345,8 +344,8 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                 insert_node(create_node(node_player, MonteCarloActionType.ATTACK, attack_idx), node, node_player, node_other_player, is_simulating=True)
             else:
                 # Get a random pokemon
-                party = list(filter(lambda p: p[0].hp > 0,
-                                    [(pkmn, i) for i, pkmn in enumerate(deepcopy(node_player.party.pokemon_list))]))[1:]
+                party = list(filter(lambda p: not p[0].is_fainted(),
+                                    [(pkmn, i) for i, pkmn in enumerate(deepcopy(node_player.get_party().get_as_list()))]))[1:]
                 shuffle(party)
                 _, switch_idx = party[0]
 
@@ -358,15 +357,13 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
         # On each run, calculate the outcomes via backpropagation
         backprop(leaf, fin_outcome)
 
-        print("Simulation %d complete" % (current_num_plays + 1))
-
     return tree
 
 
 if __name__ == "__main__":
     party1 = get_party("charizard")
     party2 = get_party("venusaur")
-    print("%s vs. %s" % (', '.join([pkmn.name for pkmn in party1.pokemon_list]), ', '.join([pkmn.name for pkmn in party2.pokemon_list])))
+    print("%s vs. %s" % (', '.join([pkmn._name for pkmn in party1._pokemon_list]), ', '.join([pkmn._name for pkmn in party2._pokemon_list])))
 
     player1 = Player("Player 1", party1, None, RandomModel, id=1)
     player2 = Player("Player 2", party2, None, RandomModel, id=2)
