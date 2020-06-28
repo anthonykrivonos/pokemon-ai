@@ -7,7 +7,7 @@ from typing import *
 from os.path import join, dirname
 
 from src.utils import config
-from src.models import Party, Move, MoveBank, Pokemon, Stats, Status
+from src.classes import Party, Move, MoveBank, Pokemon, Stats, Status, PokemonType
 
 sys.path.append(join(dirname(__file__), '../..'))
 
@@ -66,7 +66,7 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
             move_bank.append(Move(info[i], int(info[i + 1]), int(info[i + 2]), type_map[info[i + 3]], info[i + 4] is "special", int(info[i + 6]), status))
         i += 7
 
-    return Pokemon(type_map[info[1]], info[0], int(info[2]), Stats(int(info[4]), int(info[6]), int(info[5]), int(info[7]), int(info[8])), MoveBank(move_bank), int(info[3]))
+    return Pokemon(PokemonType(type_map[info[1]]), info[0], int(info[2]), Stats(int(info[4]), int(info[6]), int(info[5]), int(info[7]), int(info[8])), MoveBank(move_bank), int(info[3]))
 
 
 def get_random_pokemon() -> Pokemon:

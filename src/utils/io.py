@@ -1,7 +1,9 @@
-import os, sys, console
+import os, sys
 from typing import *
 from enum import Enum
 from os.path import join, dirname
+
+from src.classes import Pokemon, Player
 
 sys.path.append(join(dirname(__file__), '../..'))
 
@@ -105,7 +107,7 @@ def get_terminal_dimensions() -> (int, int):
 ##
 
 
-def print_battle_screen(player, other_player, screen_width=None):
+def print_battle_screen(player: Player, other_player: Player, screen_width=None):
     """
     Prints a battle screen.
     :param player: The current player who the battle screen is focused on.
@@ -114,13 +116,23 @@ def print_battle_screen(player, other_player, screen_width=None):
     """
     screen_width = screen_width if screen_width is not None else get_terminal_dimensions()[0]
 
-    pokemon = player.party.get_starting()
-    other_pokemon = other_player.party.get_starting()
-    txt_player_name = lambda plyr, aln: align(plyr.name.upper(), aln, screen_width)
-    txt_pokemon_top = lambda pkmn: split_align(pkmn.name, 'Lv' + str(pkmn.level), screen_width)
-    txt_pokemon_bottom = lambda pkmn: split_align(str(pkmn.hp) + '/' + str(pkmn.base_hp) + ' HP',
-                                                  '' if pkmn.status is None else pkmn.status.name,
+    def get_statuses(pkmn: Pokemon):
+        statuses = []
+        if pkmn.get_status() is not None:
+            statuses.append(pkmn.get_status().name)
+        if pkmn.get_other_status() is not None:
+            statuses.append(pkmn.get_other_status().name)
+        return ', '.join(statuses)
+
+    txt_player_name = lambda plyr, aln: align(plyr.get_name().upper(), aln, screen_width)
+    txt_pokemon_top = lambda pkmn: split_align("%s (%s)" % (pkmn.get_name(), pkmn.get_type().name), 'Lv' + str(pkmn.get_level()), screen_width)
+    txt_pokemon_bottom = lambda pkmn: split_align(str(pkmn.get_hp()) + '/' + str(pkmn.get_base_hp()) + ' HP',
+                                                  get_statuses(pkmn),
                                                   screen_width)
+
+    pokemon = player.get_party().get_starting()
+    other_pokemon = other_player.get_party().get_starting()
+
     print("\n", end="\r", flush=True)
     print(repeat('=', screen_width))
     print(txt_player_name(other_player, Align.RIGHT))

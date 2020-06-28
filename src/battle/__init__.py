@@ -1,1 +1,1 @@
-from .battle import *
+from .battle import Battle

@@ -13,6 +13,15 @@ class Item:
         :param use: The function the item performs when used. First argument is Player. Second argument is Pokemon. Returns None.
         :param description: A description of the item.
         """
-        self.name = name
-        self.use = use
-        self.description = description
+        self._name = name
+        self._use = use
+        self._description = description
+
+    def get_name(self) -> str:
+        return self._name
+
+    def use(self) -> None:
+        self._use()
+
+    def get_description(self) -> str:
+        return self._description

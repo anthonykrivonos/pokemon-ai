@@ -3,15 +3,16 @@ from os.path import join, dirname
 from math import sqrt, log
 
 from .chance import random_pct, chance
-from src.models import Pokemon, Move, Effectiveness, PokemonType, Player
+from src.classes import Pokemon, Move, Effectiveness, PokemonType, Player, Criticality
 
 sys.path.append(join(dirname(__file__), '../..'))
+
 
 ##
 # Move Calculations
 ##
 
-def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int, Effectiveness, int):
+def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int, Effectiveness, Criticality):
     """
     Calculates a slightly random (due to
     critical hit, etc.) damage from the pokemon to the on_pokemon.
@@ -20,14 +21,14 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     :param on_pokemon: The defending Pokemon.
     :return: A tuple containing damage dealt, the level of effectiveness of the move, and a critical hit value (2 for critical hit, 1 for regular).
     """
-    critical = chance(.0625, lambda: 2, lambda: 1)
+    critical = chance(.0625, lambda: Criticality.CRITICAL, lambda: Criticality.NOT_CRITICAL)
     random = random_pct(85, 100)
-    effectiveness = is_effective(pokemon.type, on_pokemon.type)
-    modifier = critical * random * effectiveness.value
-    attack = pokemon.stats.special_attack if move.is_special else pokemon.stats.attack
-    defense = pokemon.stats.special_defense if move.is_special else pokemon.stats.defense
-    damage = max(0, int(((((((2 * pokemon.level) / 5) + 2) * move.base_damage * (attack / defense)) / 50) + 2) * modifier))
-    damage = damage if damage < on_pokemon.hp else on_pokemon.hp
+    effectiveness = is_effective(pokemon.get_type(), on_pokemon.get_type())
+    modifier = critical.value * random * effectiveness.value
+    attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
+    defense = pokemon.get_stats().get_special_defense() if move.is_special() else pokemon.get_stats().get_defense()
+    damage = max(0, int(((((((2 * pokemon.get_level()) / 5) + 2) * move.get_base_damage() * (attack / defense)) / 50) + 2) * modifier))
+    damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()
     return damage, effectiveness, critical
 
 
@@ -39,9 +40,6 @@ def upper_confidence_bounds(node_wins, node_visits, parent_visits, c=sqrt(2)) ->
     :param parent_visits: Number of visits for the parent node.
     :param c: The exploitation parameter.
     """
-    #print("node_wins:     %d" % node_wins)
-    #print("node_visits:   %d" % node_visits)
-    #print("parent_visits: %d" % parent_visits)
     return (node_wins / node_visits) + c * sqrt(log(parent_visits) / node_visits)
 
 
@@ -253,8 +251,9 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
             return Effectiveness.NOT_EFFECTIVE
     return Effectiveness.NORMAL
 
+
 ##
-# Math
+# Math Functions
 ##
 
 def outcome_func_v1(player: Player, opponent: Player) -> float:
@@ -268,24 +267,23 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
     player_total_hp, opp_total_hp = 0, 0
     hp_taken, hp_dealt = 0, 0
     player_fainted_count, opp_fainted_count = 0, 0
-    for pokemon in player.party.pokemon_list:
-        player_total_hp += pokemon.base_hp
-        hp_taken += pokemon.base_hp - pokemon.hp
-        player_fainted_count += int(pokemon.hp == 0)
-    for pokemon in opponent.party.pokemon_list:
-        opp_total_hp += pokemon.base_hp
-        hp_dealt += pokemon.base_hp - pokemon.hp
-        opp_fainted_count += int(pokemon.hp == 0)
+    for pokemon in player.get_party().get_as_list():
+        player_total_hp += pokemon.get_base_hp()
+        hp_taken += pokemon.get_base_hp() - pokemon.get_hp()
+        player_fainted_count += int(pokemon.get_hp() == 0)
+    for pokemon in opponent.get_party().get_as_list():
+        opp_total_hp += pokemon.get_base_hp()
+        hp_dealt += pokemon.get_base_hp() - pokemon.get_hp()
+        opp_fainted_count += int(pokemon.get_hp() == 0)
 
-    # lost
-    if player_fainted_count == len(player.party.pokemon_list):
+    if player_fainted_count == len(player.get_party().get_as_list()):
         outcome = .2
     else:
         outcome = .8
 
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
-    pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.party.pokemon_list) - (player_fainted_count / len(player.party.pokemon_list))**2
-    scaler = (hp_perc_diff + pokemon_fainted_perc_diff) / 10
+    pokemon_fainted_perc_diff = opp_fainted_count / len(opponent.get_party().get_as_list()) - (player_fainted_count / len(player.get_party().get_as_list())) ** 2
+    scalar = (hp_perc_diff + pokemon_fainted_perc_diff) / 10
 
-    return outcome + scaler
+    return outcome + scalar

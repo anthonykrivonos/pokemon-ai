@@ -1,9 +1,9 @@
 import requests
-import csv
-import json
-import os
-import math
+import sys, csv, math
 from random import shuffle
+from os.path import join, dirname
+
+sys.path.append(join(dirname(__file__), '../..'))
 
 only_attack_moves = True
 only_common_status = True
@@ -39,7 +39,7 @@ for pokemon in pokemon_list:
         'Speed': stats[5]
     }
 
-    def stat_growth(pokemon: dict):
+    def stat_growth(pokemon_dict: dict):
         """
         Adjust a Pokemon's stats based on their base stats and level
         Formulas based on https://bulbapedia.bulbagarden.net/wiki/Statistic, Gen I & II
@@ -52,14 +52,14 @@ for pokemon in pokemon_list:
         def other_stat_formula(stat: int):
             return round_down((stat * 2 * 100 / 100 ) + 5)
 
-        level = pokemon["Level"]
+        level = pokemon_dict["Level"]
 
-        pokemon["HP"] = int(round_down((pokemon["HP"] * 2 * level / 100) + level + 10))
-        pokemon["Attack"] = int(other_stat_formula(pokemon["Attack"]))
-        pokemon["Sp_Attack"] = int(other_stat_formula(pokemon["Sp_Attack"]))
-        pokemon["Defense"] = int(other_stat_formula(pokemon["Defense"]))
-        pokemon["Sp_Defense"] = int(other_stat_formula(pokemon["Sp_Defense"]))
-        pokemon["Speed"] = int(other_stat_formula(pokemon["Speed"]))
+        pokemon_dict["HP"] = int(round_down((pokemon_dict["HP"] * 2 * level / 100) + level + 10))
+        pokemon_dict["Attack"] = int(other_stat_formula(pokemon_dict["Attack"]))
+        pokemon_dict["Sp_Attack"] = int(other_stat_formula(pokemon_dict["Sp_Attack"]))
+        pokemon_dict["Defense"] = int(other_stat_formula(pokemon_dict["Defense"]))
+        pokemon_dict["Sp_Defense"] = int(other_stat_formula(pokemon_dict["Sp_Defense"]))
+        pokemon_dict["Speed"] = int(other_stat_formula(pokemon_dict["Speed"]))
     
     stat_growth(entry)
 
@@ -68,7 +68,7 @@ for pokemon in pokemon_list:
     # code regarding move_len specifically for ditto, which has 0 moves
     move_len = 4 if len(moves) >= 4 else len(moves)
 
-    # shuffle availible moves before picking
+    # shuffle available moves before picking
     shuffle(moves)
    
     moveList = []

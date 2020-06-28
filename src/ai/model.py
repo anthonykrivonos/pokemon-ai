@@ -1,6 +1,6 @@
 from typing import *
 
-from src.models import Player, Move, Item, Party
+from src.classes import Player, Move, Item, Party
 
 
 class ModelInterface:

@@ -3,7 +3,7 @@ from typing import *
 from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
-from src.models import Status, status_names, Player, PokemonType, Move, Effectiveness, Item
+from src.classes import Status, status_names, Pokemon, Player, PokemonType, Move, Effectiveness, Item, Criticality
 from src.utils import print_battle_screen, clear, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, random_int, get_terminal_dimensions
 
 
@@ -43,13 +43,12 @@ class Battle:
                 clear_battle_screen()
 
         # Perform attacks and get a winner
-        did_faint, _ = self._turn_perform_attacks(self.player1, self.player2)
-        if did_faint:
-            winner = self._check_win()
-            if winner is not None:
-                # Winner!
-                self._alert(winner.name + ' won!', self.player1, self.player2)
-                return winner
+        self._turn_perform_attacks(self.player1, self.player2)
+        winner = self._check_win()
+        if winner is not None:
+            # Winner!
+            self._alert(winner.get_name() + ' won!', self.player1, self.player2)
+            return winner
 
         # End both players' turns and continue
         self._turn_end(self.player1)
@@ -62,7 +61,6 @@ class Battle:
         Plays a whole battle by running it in a loop while there is no winner.
         :return: The winning player.
         """
-        self.started = True
         self._battle_start(self.player1, self.player2)
         winner = None
         while winner is None:
@@ -81,7 +79,7 @@ class Battle:
         """
         if self.verbose == 2:
             for player in players:
-                if not player.is_ai:
+                if not player.is_ai():
                     okay(message)
         elif self.verbose == 1:
             print(message)
@@ -96,8 +94,11 @@ class Battle:
         :param player1: The first player.
         :param player2: The second player.
         """
-        player1.id = self._PLAYER_1_ID
-        player2.id = self._PLAYER_2_ID
+        self.started = True
+
+        # Assign faux IDs for keeping track
+        player1._id = self._PLAYER_1_ID
+        player2._id = self._PLAYER_2_ID
 
         if self.verbose >= 1:
             # Clear the terminal window
@@ -112,29 +113,30 @@ class Battle:
         Called when the provided player's turn starts.
         :param player: The player whose turn it is.
         """
-        turn_complete = False
-        while not turn_complete:
-            if not player.is_ai:
-                pokemon = player.party.get_starting()
-                move = prompt_multi('What will ' + player.name + '\'s ' + pokemon.name + ' do?',
-                                    "Attack",
-                                    "Bag",
-                                    "Switch Pokemon",
-                                    "End Battle"
-                                    )[0]
-            else:
-                # AI player should make move decision based on provided objects.
-                return self._turn_ai(player)
-            if move is 0:
-                turn_complete = self._turn_attack(player)
-            elif move is 1:
-                turn_complete = self._turn_bag(player)
-            elif move is 2:
-                turn_complete = self._turn_switch_pokemon(player)
-            else:
-                clear_battle_screen()
-                self._alert(player.name + ' forfeits...', player)
-                exit(0)
+        if not player.is_ai():
+            turn_complete = False
+            while not turn_complete:
+                if not player.is_ai():
+                    pokemon = player.get_party().get_starting()
+                    move = prompt_multi('What will ' + player.get_name() + '\'s ' + pokemon.get_name() + ' do?',
+                                        "Attack",
+                                        "Bag",
+                                        "Switch Pokemon",
+                                        "Forfeit"
+                                        )[0]
+                if move == 0:
+                    turn_complete = self._turn_attack(player)
+                elif move == 1:
+                    turn_complete = self._turn_bag(player)
+                elif move == 2:
+                    turn_complete = self._turn_switch_pokemon(player)
+                else:
+                    clear_battle_screen()
+                    self._alert(player.get_name() + ' forfeits...', player)
+                    exit(0)
+        else:
+            # AI player should make move decision based on provided objects.
+            self._turn_ai(player)
 
     def _turn_end(self, player: Player):
         """
@@ -143,34 +145,36 @@ class Battle:
         :return: True if the player wins, False otherwise.
         """
         # Get the Pokemon that's currently out
-        pokemon = player.party.get_starting()
+        pokemon = player.get_party().get_starting()
 
         def self_inflict(base_damage: int):
             # Performs damage calculation for self-inflicted attacks
-            damage = pokemon.stats.attack / base_damage
-            defense = pokemon.stats.defense / base_damage * 1 / 10
-            total_damage = min(max(1, (damage - defense)), pokemon.hp)
-            pokemon.hp = pokemon.hp - total_damage
-            if pokemon.hp is 0:
-                self._alert(pokemon.name + ' fainted!', player)
+            damage = int(pokemon.get_stats().get_attack() / base_damage)
+            defense = int(pokemon.get_stats().get_defense() / base_damage * 1 / 10)
+            total_damage = min(max(1, (damage - defense)), pokemon.get_hp())
+            pokemon.take_damage(total_damage)
+            if pokemon.is_fainted():
+                self._alert(pokemon.get_name() + ' fainted!', player)
                 return not self._turn_switch_pokemon(player, False)
             return False
 
-        if pokemon.other_status in [Status.POISON, Status.BAD_POISON, Status.BURN]:
-            self._alert(pokemon.name + ' is ' + status_names[pokemon.other_status] + '.', player)
+        if pokemon.get_other_status() in [Status.POISON, Status.BAD_POISON, Status.BURN]:
+            self._alert(pokemon.get_name() + ' is ' + status_names[pokemon.get_other_status()] + '.', player)
 
-            pokemon.other_status_turns += 1
-            if pokemon.other_status is Status.POISON:
-                damage = int(pokemon.base_hp / 16)
-                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from poison.', player)
+            # Increment the number of turns with the other status
+            pokemon.inc_other_status_turn()
+
+            if pokemon.get_other_status() is Status.POISON:
+                damage = int(pokemon.get_base_hp() / 16)
+                self._alert(pokemon.get_name() + ' took ' + str(damage) + ' damage from poison.', player)
                 return self_inflict(damage)
-            if pokemon.other_status is Status.BAD_POISON:
-                damage = int(pokemon.base_hp * pokemon.other_status_turns / 16)
-                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from poison.', player)
+            if pokemon.get_other_status() is Status.BAD_POISON:
+                damage = int(pokemon.get_base_hp() * pokemon.get_other_status_turns() / 16)
+                self._alert(pokemon.get_name() + ' took ' + str(damage) + ' damage from poison.', player)
                 return self_inflict(damage)
-            elif pokemon.other_status is Status.BURN:
-                damage = int(pokemon.base_hp / 8)
-                self._alert(pokemon.name + ' took ' + str(damage) + ' damage from its burn.', player)
+            elif pokemon.get_other_status() is Status.BURN:
+                damage = int(pokemon.get_base_hp() / 8)
+                self._alert(pokemon.get_name() + ' took ' + str(damage) + ' damage from its burn.', player)
                 return self_inflict(damage)
 
         return False
@@ -181,10 +185,10 @@ class Battle:
         :param player: The player the AI plays for.
         :return: True, always, as if the model knows what it's doing.
         """
-        assert player.model is not None
+        assert player.get_model() is not None
 
         # Get the other player
-        other_player = self.player2 if player.id == self._PLAYER_1_ID else self.player1
+        other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
 
         # Create lambda functions to be used by the model
         attack_func = lambda move: self._turn_attack(player, move)
@@ -192,7 +196,7 @@ class Battle:
         switch_pokemon_at_idx_func = lambda idx: self._turn_switch_pokemon(player, False, idx)
 
         # Take the turn using the model
-        player.model.take_turn(player, other_player, attack_func, use_item_func, switch_pokemon_at_idx_func)
+        player.get_model().take_turn(player, other_player, attack_func, use_item_func, switch_pokemon_at_idx_func)
 
         return True
 
@@ -203,17 +207,17 @@ class Battle:
         :param ai_move: The move the AI is playing.
         :return: True if the player selected an attack, False if the player chooses to go back.
         """
-        pokemon = player.party.get_starting()
-        if not player.is_ai:
+        pokemon = player.get_party().get_starting()
+        if not player.is_ai():
             move = None
-            while move is None or move.pp is 0:
+            while move is None or not move.is_available():
                 move_idx = prompt_multi('Select a move.', 'None (Go back)',
-                                        *[m.name + ': ' + PokemonType(m.type).name.lower().capitalize() + ', ' + str(
-                                            m.pp) + '/' + str(m.base_pp) + ' PP' for m in pokemon.move_bank.moves])[0]
-                if move_idx is 0:
+                                        *[m.get_name() + ': ' + PokemonType(m.get_type()).name.lower().capitalize() + ', ' + str(
+                                            m.get_pp()) + '/' + str(m.get_base_pp()) + ' PP' for m in pokemon.get_move_bank().get_as_list()])[0]
+                if move_idx == 0:
                     return False
-                move = pokemon.move_bank.get_move(move_idx - 1)
-                if move.pp is 0:
+                move = pokemon.get_move_bank().get_move(move_idx - 1)
+                if not move.is_available():
                     self._alert("There's no PP left for this move!", player)
         elif ai_move is not None:
             move = ai_move
@@ -230,25 +234,25 @@ class Battle:
         :param ai_item: The item the AI is using.
         :return: True if the player uses a bag item, False if the player chooses to go back.
         """
-        pokemon = player.party.get_starting()
-        if not player.is_ai:
+        pokemon = player.get_party().get_starting()
+        if not player.is_ai():
             item = prompt_multi('Use which item?', 'None (Go back)',
-                                *[i.name + " (" + i.description + ")" for i in player.bag.item_list])[0]
+                                *[i.get_name() + " (" + i.get_description() + ")" for i in player.get_bag().get_as_list()])[0]
         elif ai_item is not None:
             item = ai_item
         else:
             item = 0
 
-        if item is 0:
+        if item == 0:
             return False
 
         item_idx = item - 1
-        item = player.bag.item_list[item_idx]
+        item = player.get_bag().get_as_list()[item_idx]
 
         # Use the item and remove it from the player's bag
-        self._alert("%s used a %s." % (player.name, item.name), self.player1, self.player2)
+        self._alert("%s used a %s." % (player.get_name(), item.get_name()), self.player1, self.player2)
         item.use(player, pokemon)
-        player.bag.item_list.remove(item_idx)
+        player.get_bag().get_as_list().remove(item_idx)
 
         return True
 
@@ -257,161 +261,170 @@ class Battle:
         Called when the player must switch Pokemon.
         :param player: The player who is switching pokemon.
         :param none_option: Is the player allowed to go back? Aka, is there an option to choose "None"?
-        :param ai_pokemon: The Pokemon the AI is switching out.
+        :param ai_pokemon_idx: The index of the Pokemon the AI is switching out.
         :return: True if the player switches Pokemon, false otherwise.
         """
-        current_pokemon = player.party.get_starting()
-        can_switch_pokemon = not all([pokemon.hp == 0 for pokemon in player.party.pokemon_list])
+        # Get the other player
+        other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
+
+        current_pokemon = player.get_party().get_starting()
+        can_switch_pokemon = not all([pokemon.is_fainted() for pokemon in player.get_party().get_as_list()])
         if not can_switch_pokemon:
             return False
-        while True:
-            if not player.is_ai:
+        if not player.is_ai():
+            while True:
                 # Write the options out
-                options = [p.name + " (" + str(p.hp) + "/" + str(p.base_hp) + " HP)" for p in player.party.pokemon_list]
+                options = [p.get_name() + " (" + str(p.get_hp()) + "/" + str(p.get_base_hp()) + " HP)" for p in player.get_party().get_as_list()]
                 if none_option:
                     options.insert(0, 'None (Go back)')
                 item = prompt_multi('Which Pokémon would you like to switch in?', *options)[0]
 
                 # The player chooses "None"
-                if none_option and item is 0:
+                if none_option and item == 0:
                     return False
 
                 # Get the Pokemon to switch in
                 idx = item - bool(none_option)
-                switched_pokemon = player.party.get_at_index(idx)
+                switched_pokemon = player.get_party().get_at_index(idx)
 
-                if switched_pokemon.hp is 0:
-                    self._alert(switched_pokemon.name + ' has fainted.', player)
-                elif idx is 0:
-                    self._alert(switched_pokemon.name + ' is currently in battle.', player)
+                if switched_pokemon.is_fainted():
+                    self._alert(switched_pokemon.get_name() + ' has fainted.', player)
+                elif idx == 0:
+                    self._alert(switched_pokemon.get_name() + ' is currently in battle.', player)
                 else:
-                    self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
-                    player.party.make_starting(idx)
+                    self._alert('Switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', player)
+                    self._alert(player.get_name() + ' switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', other_player)
+                    player.get_party().make_starting(idx)
                     return True
-            elif player.is_ai:
-                if ai_pokemon_idx is None:
-                    ai_pokemon_idx = player.model.force_switch_pokemon(player.party)
-                player.party.make_starting(ai_pokemon_idx)
-                switched_pokemon = player.party.get_at_index(ai_pokemon_idx)
-                self._alert('Switched ' + current_pokemon.name + ' with ' + switched_pokemon.name + '.', player)
-                return True
-            else:
-                return False
+        elif player.is_ai():
+            while ai_pokemon_idx is None or ai_pokemon_idx == 0:
+                ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
+            switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
+            player.get_party().make_starting(ai_pokemon_idx)
+            self._alert('Switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', player)
+            self._alert(player.get_name() + ' switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', other_player)
+            return True
+        else:
+            return False
 
-    def _turn_perform_attacks(self, player_a: Player, player_b: Player) -> (bool, Player):
+    def _turn_perform_attacks(self, player_a: Player, player_b: Player):
         """
         Dequeues and performs the attacks in the attack queue.
         :param player_a: The first player to perform attacks for.
         :param player_b: The second player to perform attacks for.
-        :return: Returns a tuple containing whether or not a player won and, if so, which player?
         """
-        for player, move in self.attack_queue:
-            if player.id is player_a.id:
-                if self._perform_attack(move, player_a, player_b):
-                    return True, player_a
-            elif player.id is player_b.id:
-                if self._perform_attack(move, player_b, player_a):
-                    return True, player_b
+        for player, pokemon, move in self.attack_queue:
+            if player.get_id() is player_a.get_id():
+                if self._perform_attack(move, player_a, player_b, pokemon):
+                    break
+            elif player.get_id() is player_b.get_id():
+                if self._perform_attack(move, player_b, player_a, pokemon):
+                    break
         self.attack_queue = []
-        return False, None
 
-    def _perform_attack(self, move: Move, player: Player, on_player: Player):
+    def _perform_attack(self, move: Move, player: Player, on_player: Player, pokemon: Pokemon):
         """
         Performs a move by the starting Pokemon of player against the starting pokemon of on_player.
         :param move: The move player's Pokemon is performing.
         :param player: The player whose Pokemon is attacking.
         :param on_player: The player whose Pokemon is defending.
+        :param pokemon: The attacking Pokemon.
         :return: Returns True if player wins, False otherwise.
         """
-        pokemon = player.party.get_starting()
-        on_pokemon = on_player.party.get_starting()
+
+        if pokemon.is_fainted():
+            return False
+
+        on_pokemon = on_player.get_party().get_starting()
 
         def confusion():
             base_damage = 40
-            damage = pokemon.stats.attack / base_damage
-            defense = pokemon.stats.defense / base_damage * 1 / 10
-            total_damage = min(max(1, damage - defense), pokemon.hp)
-            pokemon.hp = pokemon.hp - total_damage
-            self._alert(pokemon.name + ' hurt itself in its confusion.', player, on_player)
-            if pokemon.hp is 0:
-                self._alert(pokemon.name + ' fainted!', player)
+            damage = int(pokemon.get_stats().get_attack() / base_damage)
+            defense = int(pokemon.get_stats().get_defense() / base_damage * 1 / 10)
+            total_damage = max(1, damage - defense)
+            pokemon.take_damage(total_damage)
+            self._alert(pokemon.get_name() + ' hurt itself in its confusion.', player, on_player)
+            if pokemon.is_fainted():
+                self._alert(pokemon.get_name() + ' fainted!', player)
                 return not self._turn_switch_pokemon(player, False)
             return False
 
         def paralysis():
-            self._alert(pokemon.name + ' is unable to move.', player, on_player)
+            self._alert(pokemon.get_name() + ' is unable to move.', player, on_player)
 
         def infatuation():
-            self._alert(pokemon.name + ' is infatuated and is unable to move.', player, on_player)
+            self._alert(pokemon.get_name() + ' is infatuated and is unable to move.', player, on_player)
 
         def freeze():
-            self._alert(pokemon.name + ' is frozen solid.', player, on_player)
+            self._alert(pokemon.get_name() + ' is frozen solid.', player, on_player)
 
         def sleep():
-            self._alert(pokemon.name + ' is fast asleep.', player, on_player)
+            self._alert(pokemon.get_name() + ' is fast asleep.', player, on_player)
 
         def try_attack():
-            move.pp -= 1
+            # Decrease the PP on the move
+            move.dec_pp()
 
             # Checks to see if the attack hit
-            change_of_hit = pokemon.stats.accuracy / 100 * on_pokemon.stats.evasion / 100
+            change_of_hit = pokemon.get_stats().get_accuracy() / 100 * on_pokemon.get_stats().get_evasiveness() / 100
             did_hit = chance(change_of_hit, True, False)
 
             if not did_hit:
-                self._alert(pokemon.name + '\'s attack missed.', player, on_player)
+                self._alert(pokemon.get_name() + '\'s attack missed.', player, on_player)
                 return False
 
-            self._alert(pokemon.name + ' used ' + move.name + '!', player, on_player)
+            self._alert(pokemon.get_name() + ' used ' + move.get_name() + '!', player, on_player)
 
-            if move.base_damage > 0:
+            if move.is_damaging():
                 # Calculate damage
                 damage, effectiveness, critical = calculate_damage(move, pokemon, on_pokemon)
 
                 # Describe the effectiveness
-                if critical is 2 and effectiveness is not Effectiveness.NO_EFFECT:
+                if critical == Criticality.CRITICAL and effectiveness != Effectiveness.NO_EFFECT:
                     self._alert('A critical hit!', player, on_player)
-                if effectiveness is Effectiveness.NO_EFFECT:
-                    self._alert('It has no effect on ' + on_pokemon.name + '.', player, on_player)
-                if effectiveness is Effectiveness.SUPER_EFFECTIVE:
+                if effectiveness == Effectiveness.NO_EFFECT:
+                    self._alert('It has no effect on ' + on_pokemon.get_name() + '.', player, on_player)
+                if effectiveness == Effectiveness.SUPER_EFFECTIVE:
                     self._alert('It\'s super effective!', player, on_player)
-                if effectiveness is Effectiveness.NOT_EFFECTIVE:
+                if effectiveness == Effectiveness.NOT_EFFECTIVE:
                     self._alert('It\'s not very effective...', player, on_player)
 
-                self._alert(on_pokemon.name + ' took ' + str(damage) + ' damage.', player, on_player)
+                self._alert(on_pokemon.get_name() + ' took ' + str(damage) + ' damage.', player, on_player)
 
                 # Lower the opposing Pokemon's HP
-                on_pokemon.hp = max(0, on_pokemon.hp - damage)
+                on_pokemon._hp = max(0, on_pokemon.get_hp() - damage)
 
             # If the move inflicts a status, perform the status effect
-            if move.status:
-                if move.status in [Status.POISON, Status.BAD_POISON, Status.BURN]:
-                    on_pokemon.other_status = move.status
-                    on_pokemon.other_status_turns = 0
+            if move.get_status_inflict():
+                if move.get_status_inflict() in [Status.POISON, Status.BAD_POISON, Status.BURN]:
+                    # Unlike status turns, other status turns increase in length because they don't end
+                    on_pokemon._other_status = move.get_status_inflict()
+                    on_pokemon._other_status_turns = 0
                 else:
-                    on_pokemon.status = move.status
-                    on_pokemon.status_turns = random_int(1, 7)
-                self._alert(pokemon.name + ' was ' + status_names[move.status], player, on_player)
+                    on_pokemon._status = move.get_status_inflict()
+                    on_pokemon._status_turns = random_int(1, 7)
+                self._alert(on_pokemon.get_name() + ' was ' + status_names[move.get_status_inflict()], player, on_player)
 
             # Heal the pokemon
-            if move.base_heal > 0:
-                on_pokemon.hp = min(pokemon.base_hp, pokemon.hp + move.base_heal)
-                self._alert(pokemon.name + ' gained ' + str(move.base_heal) + ' HP.', player)
+            if move.get_base_heal() > 0:
+                on_pokemon.heal(move.get_base_heal())
+                self._alert(pokemon.get_name() + ' gained ' + str(move.get_base_heal()) + ' HP.', player)
 
             # Check if the Pokemon fainted
-            if on_pokemon.hp == 0:
-                self._alert(on_pokemon.name + ' fainted!', player, on_player)
+            if on_pokemon.is_fainted():
+                self._alert(on_pokemon.get_name() + ' fainted!', player, on_player)
                 return not self._turn_switch_pokemon(on_player, False)
 
             return False
 
-        if pokemon.status not in [None, Status.POISON, Status.BAD_POISON, Status.BURN]:
+        if pokemon.get_status() not in [None, Status.POISON, Status.BAD_POISON, Status.BURN]:
             # If the Pokemon is inflicted by a status effect that impacts the chance of landing the attack,
             # perform the calculations.
-            status = pokemon.status
-            pokemon.status_turns = max(0, pokemon.status_turns - 1)
-            if pokemon.status_turns is 0:
-                pokemon.status = None
-            self._alert(pokemon.name + ' is ' + status_names[status] + '.', player, on_player)
+            status = pokemon.get_status()
+            pokemon._status_turns = max(0, pokemon.get_status_turns() - 1)
+            if pokemon.get_status_turns() == 0:
+                pokemon._status = None
+            self._alert(pokemon.get_name() + ' is ' + status_names[status] + '.', player, on_player)
             if status is Status.CONFUSION:
                 chance(1 / 3, lambda: confusion(), try_attack)
             elif status is Status.PARALYSIS:
@@ -422,7 +435,7 @@ class Battle:
                 freeze()
             elif status is Status.SLEEP:
                 sleep()
-        elif pokemon.status is None:
+        elif pokemon.get_status() is None:
             # No status effect, attempt to attack
             return try_attack()
 
@@ -438,19 +451,20 @@ class Battle:
         :param player: The player whose starter Pokemon will be attacking.
         :param move: The move to attack with.
         """
-        attack_tuple = (player, move)
-        if len(self.attack_queue) is 0:
-            self.attack_queue.append(attack_tuple)
+        pokemon = player.get_party().get_starting()
+        attack_triple = (player, pokemon, move)
+        if len(self.attack_queue) == 0:
+            self.attack_queue.append(attack_triple)
         else:
-            op_speed = self.attack_queue[0][0].party.get_starting().stats.speed
-            self_speed = player.party.get_starting().stats.speed
+            op_speed = self.attack_queue[0][1].get_stats().get_speed()
+            self_speed = pokemon.get_stats().get_speed()
             if op_speed > self_speed:
-                self.attack_queue.append(attack_tuple)
+                self.attack_queue.append(attack_triple)
             elif op_speed < self_speed:
-                self.attack_queue.insert(0, attack_tuple)
+                self.attack_queue.insert(0, attack_triple)
             else:
-                chance(0.5, lambda: self.attack_queue.append(attack_tuple),
-                       lambda: self.attack_queue.insert(0, attack_tuple))
+                chance(0.5, lambda: self.attack_queue.append(attack_triple),
+                       lambda: self.attack_queue.insert(0, attack_triple))
 
     ##
     # Progress Functions
@@ -461,8 +475,8 @@ class Battle:
         Returns the winner, if any.
         :return: The winning Player object.
         """
-        player_1_won = all([ pokemon.hp == 0 for pokemon in self.player2.party.pokemon_list ])
-        player_2_won = all([ pokemon.hp == 0 for pokemon in self.player1.party.pokemon_list ])
+        player_1_won = all([pokemon.is_fainted() for pokemon in self.player2.get_party().get_as_list()])
+        player_2_won = all([pokemon.is_fainted() for pokemon in self.player1.get_party().get_as_list()])
         if player_1_won:
             return self.player1
         elif player_2_won:
