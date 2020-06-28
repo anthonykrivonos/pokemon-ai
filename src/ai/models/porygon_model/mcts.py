@@ -36,11 +36,12 @@ class MonteCarloNode:
         self.model = model
         self.outcome = outcome
         self.parent = None
-        self.children = []
+        self.children: List[MonteCarloNode] = []
         self.childrenMap = {}
         self.description = description
         self.depth = depth
         self.visits = visits
+        self.token = ''
 
     def visit(self):
         """
@@ -80,9 +81,10 @@ class MonteCarloNode:
         :param node: The node to add.
         """
         node.depth = self.depth + 1
-        self.children.append(node)
         node.parent = self
         token = self._tokenize_child(pokemon, node.action_type)
+        node.token = token
+        self.children.append(node)
         node_index = len(self.children) - 1
         if token not in self.childrenMap:
             self.childrenMap[token] = {}
@@ -97,6 +99,15 @@ class MonteCarloNode:
         :return: A tokenized string.
         """
         return "%d-%s" % (pokemon.get_id(), action_type.name)
+
+    def detokenize_child(self) -> int:
+        """
+        Returns the Pokemon ID of Pokemon associated with the node.
+        :param pokemon: A Pokemon.
+        :param action_type: A MonteCarloActionType.
+        :return: A tokenized string.
+        """
+        return int(self.token.split('-')[0])
 
     def __str__(self):
         """
@@ -147,7 +158,7 @@ class MonteCarloTree:
         for child in self.root.children:
             denom = outcome_sum + max_outcome * len(self.root.children)
             prob = (max_outcome + child.outcome) / denom if denom != 0 else 1 / len(self.root.children)
-            outcome_probs.append((child.outcome, prob, child._description))
+            outcome_probs.append((child.outcome, prob, child.description))
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
@@ -276,6 +287,9 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                                        [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
+                    print(player.get_name())
+                    print("party", len(player.get_party().get_as_list()))
+                    print("switches", [switch[0].get_name() for switch in switches])
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
@@ -365,8 +379,8 @@ if __name__ == "__main__":
     party2 = get_party("venusaur")
     print("%s vs. %s" % (', '.join([pkmn._name for pkmn in party1._pokemon_list]), ', '.join([pkmn._name for pkmn in party2._pokemon_list])))
 
-    player1 = Player("Player 1", party1, None, RandomModel, id=1)
-    player2 = Player("Player 2", party2, None, RandomModel, id=2)
+    player1 = Player("Player 1", party1, None, RandomModel, player_id=1)
+    player2 = Player("Player 2", party2, None, RandomModel, player_id=2)
 
     tree = make_tree(player1, player2, 1000)
     tree.print()

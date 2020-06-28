@@ -28,9 +28,11 @@ class PorygonModel(RandomModel):
 
     @staticmethod
     def force_switch_pokemon(party: Party):
-        party_list = deepcopy(party.get_as_list())
-        shuffle(party_list)
-        for i, pokemon in enumerate(party_list):
-            if pokemon.get_hp() != 0:
+        party_indices = list(range(len(party.get_as_list())))
+        print(party_indices)
+        shuffle(party_indices)
+        for i in party_indices:
+            pokemon = party.get_at_index(i)
+            if i != 0 and not pokemon.is_fainted():
                 return i
         return 0

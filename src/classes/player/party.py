@@ -20,6 +20,9 @@ class Party:
     def get_as_list(self) -> List[Pokemon]:
         return self._pokemon_list
 
+    def get_sorted_list(self) -> List[Pokemon]:
+        return sorted(self._pokemon_list, key=lambda pkmn: pkmn.get_id())
+
     def _preset_ids(self):
         """
         Sets the IDs of the Pokemon in the Party sequentially.
