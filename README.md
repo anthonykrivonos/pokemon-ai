@@ -18,9 +18,9 @@ Pokémon battle simulator that uses reinforcement learning techniques to win aga
     ```
 3. Code your model. Make sure only one of `attack`, `use_item`, or `switch_pokemon_at_idx` is called at the end of the turn.
 4. Create a test file that mimics `/src/scripts/sample_model.py` and add it to the `Makefile`. Ensure one or both of the players you
-are testing on has your model as its fourth argument. Note that your model should *not* be initialized. For example:
+are testing on has your model as its fourth argument. For example:
     ```
-    my_player = Player("Jane Doe", my_party, my_bag, MyModel)
+    my_player = Player("Jane Doe", my_party, my_bag, MyModel())
     ```
 
 
