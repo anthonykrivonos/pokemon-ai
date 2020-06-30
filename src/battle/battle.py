@@ -37,6 +37,12 @@ class Battle:
         if not self.started:
             self._battle_start(self.player1, self.player2)
 
+        if self.verbose == 1:
+            pokemon = self.player1.get_party().get_starting()
+            other_pokemon = self.player2.get_party().get_starting()
+            print(pokemon.get_name(), " - ", pokemon.get_hp())
+            print(other_pokemon.get_name(), " - ", other_pokemon.get_hp())
+
         # Start two turns
         for player, opponent in [[self.player1, self.player2], [self.player2, self.player1]]:
             if self.verbose == 2:
@@ -44,6 +50,7 @@ class Battle:
             self._turn_start(player)
             if self.verbose == 2:
                 clear_battle_screen()
+
 
         # Perform attacks and get a winner
         self._turn_perform_attacks(self.player1, self.player2)
@@ -105,7 +112,8 @@ class Battle:
 
         if self.verbose >= 1:
             # Clear the terminal window
-            clear(get_terminal_dimensions()[1])
+            #clear(get_terminal_dimensions()[1])
+            print("")
 
     ##
     # Turn Functions
