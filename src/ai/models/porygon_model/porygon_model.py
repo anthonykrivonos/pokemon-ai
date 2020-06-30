@@ -40,4 +40,3 @@ class PorygonModel(ModelInterface):
     def __init__(self):
         self.take_turn = take_turn
         self.force_switch_pokemon = force_switch_pokemon
-
