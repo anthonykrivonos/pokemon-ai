@@ -186,8 +186,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
     # Play num_plays amount of times
     for current_num_plays in range(num_plays):
-        print(current_num_plays)
-
         # Keep track of nodes being added into the tree
         tree_queue = []
 
@@ -319,7 +317,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
             return pick_unvisited(node) or node
 
-
         # Traverse and find the leaf to recur from
         leaf = traverse(root, player, other_player)
 
@@ -343,11 +340,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
             # Battle if on an even layer
             if len(tree_queue) % 2 == 0:
-                if current_num_plays == 19:
-                    for thing in tree_queue:
-                        #print(thing[0])
-                        pass
-
                 player1_move = tree_queue[0][0]
                 player2_move = tree_queue[1][0]
 
@@ -419,7 +411,6 @@ if __name__ == "__main__":
     tree = make_tree(player1, player2, 2500)
     tree.print()
 
-    # print("Next move: %s" % tree.get_next_action().description)
     outcome_probs = tree.get_action_probabilities()
     for prob in outcome_probs:
         print("Outcome: %1.4f, Prob: %1.4f, Move: %s" % prob)
