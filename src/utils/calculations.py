@@ -23,7 +23,7 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     """
     critical = chance(.0625, lambda: Criticality.CRITICAL, lambda: Criticality.NOT_CRITICAL)
     random = random_pct(85, 100)
-    effectiveness = is_effective(pokemon.get_type(), on_pokemon.get_type())
+    effectiveness = is_effective(move.get_type(), on_pokemon.get_type())
     modifier = critical.value * random * effectiveness.value
     attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
     defense = pokemon.get_stats().get_special_defense() if move.is_special() else pokemon.get_stats().get_defense()
@@ -277,9 +277,9 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
         opp_fainted_count += int(pokemon.get_hp() == 0)
 
     if player_fainted_count == len(player.get_party().get_as_list()):
-        outcome = .2
+        outcome = .15
     else:
-        outcome = .8
+        outcome = .85
 
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp
