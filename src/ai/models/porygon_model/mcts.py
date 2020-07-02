@@ -334,11 +334,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
             # Battle if on an even layer
             if len(tree_queue) % 2 == 0:
-                if current_num_plays == 19:
-                    for thing in tree_queue:
-                        #print(thing[0])
-                        pass
-
                 player1_move = tree_queue[0][0]
                 player2_move = tree_queue[1][0]
 
