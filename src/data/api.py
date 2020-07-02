@@ -5,7 +5,7 @@ from os.path import join, dirname
 
 sys.path.append(join(dirname(__file__), '../..'))
 
-only_attack_moves = True
+only_attack_moves = False
 only_common_status = True
 
 entry_list = []
@@ -82,6 +82,9 @@ for pokemon in pokemon_list:
         if only_attack_moves:
             if (move_info["power"] is None) or (move_info["power"] is 0):
                 continue
+        else:
+            if move_info["power"] is None:
+                move_info["power"] = 0
         
         if only_common_status:
             common_status = ["none", "poison", "infatuation", "confusion", "sleep", "paralysis", "freeze", "burn"]
