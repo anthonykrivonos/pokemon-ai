@@ -290,9 +290,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=True):
                                        [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
-                    print(player.get_name())
-                    print("party", len(player.get_party().get_as_list()))
-                    print("switches", [switch[0].get_name() for switch in switches])
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
@@ -311,18 +308,13 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=True):
                         return child
                 return None
 
-
-
             while fully_expanded(node, node_other_player if node.depth % 2 == 0 else node_player, node_player if node.depth % 2 == 0 else node_other_player):
                 node = best_uct_node(node)
 
-
             return pick_unvisited(node) or node
-
 
         # Traverse and find the leaf to recur from
         leaf = traverse(root, player, other_player)
-        outcome = 0
 
         # add the leaf's parents to the queue
         i = 0
@@ -341,7 +333,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=True):
             # Store useful variables
             node, node_player, node_other_player = tree_queue[0]
             pokemon = node_player.get_party().get_starting()
-
 
             # Battle if on an even layer
             if len(tree_queue) % 2 == 0:
@@ -380,10 +371,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=True):
                 # Simulate the battle
                 set_move(node_player, player2_move)
                 set_move(node_other_player, player1_move)
-
-
-
-
 
                 battle = Battle(node_player, node_other_player, 1 if verbose else 0)
                 winner = battle.play_turn()

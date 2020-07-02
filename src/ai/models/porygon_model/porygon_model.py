@@ -7,7 +7,7 @@ from random import shuffle
 from src.classes import Player, Party, Move, Item
 from .mcts import make_tree
 
-from ...model import ModelInterface
+from src.ai import ModelInterface
 
 NUM_SIMULATIONS = 25
 
@@ -24,10 +24,11 @@ def take_turn(player: Player, other_player: Player, attack: Callable[[Move], Non
 
 
 def force_switch_pokemon(party: Party):
-    party_list = deepcopy(party.get_as_list())
+    party_list = deepcopy(party.get_as_list()[1:])
     shuffle(party_list)
-    for i, pokemon in enumerate(party_list):
-        if pokemon.get_hp() != 0:
+    for j, pokemon in enumerate(party_list):
+        i = j + 1
+        if not pokemon.is_fainted():
             return i
     return 0
 

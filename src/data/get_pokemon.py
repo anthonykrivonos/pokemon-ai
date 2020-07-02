@@ -16,14 +16,15 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
     script_dir = os.path.dirname(__file__)
     rel_path = "pokemon.csv"
     abs_file_path = os.path.join(script_dir, rel_path)
-    
-    reader = csv.reader(open(abs_file_path, 'r'))
-    pokemon = {}
-    pokemon_names = []
-    for row in reader:
-        if len(row) != 0:
-            pokemon[row[0]] = row
-            pokemon_names.append(row[0])
+
+    with open(abs_file_path, 'r') as csv_file:
+        reader = csv.reader(csv_file)
+        pokemon = {}
+        pokemon_names = []
+        for row in reader:
+            if len(row) != 0:
+                pokemon[row[0]] = row
+                pokemon_names.append(row[0])
 
     info = pokemon[name_or_id.lower().capitalize()] if isinstance(name_or_id, str) else pokemon[pokemon_names[name_or_id]]
 
@@ -63,7 +64,7 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
     while i < 35:
         if info[i] != '':
             status = Status(status_map[info[i + 5]]) if info[i + 5] != "none" else None
-            move_bank.append(Move(info[i], int(info[i + 1]), int(info[i + 2]), type_map[info[i + 3]], info[i + 4] is "special", int(info[i + 6]), status))
+            move_bank.append(Move(info[i], int(info[i + 1]), int(info[i + 2]), PokemonType(type_map[info[i + 3]]), info[i + 4] is "special", int(info[i + 6]), status))
         i += 7
 
     return Pokemon(PokemonType(type_map[info[1]]), info[0], int(info[2]), Stats(int(info[4]), int(info[6]), int(info[5]), int(info[7]), int(info[8])), MoveBank(move_bank), int(info[3]))
