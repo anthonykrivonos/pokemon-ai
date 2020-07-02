@@ -77,6 +77,18 @@ class Battle:
             winner = self.play_turn()
         return winner
 
+    def play_turns(self, n: int):
+        """
+        Plays n turns of the battle.
+        :param n: Number of turns to play.
+        :return: The winning player.
+        """
+        for _ in range(n):
+            winner = self.play_turn()
+            if winner is not None:
+                return winner
+        return None
+
     ##
     # Alert
     ##
@@ -318,13 +330,9 @@ class Battle:
                     player.get_party().make_starting(idx)
                     return True
         elif player.is_ai():
-            print("ai_pokemon_idx is None", ai_pokemon_idx is None)
-            while ai_pokemon_idx is None or ai_pokemon_idx == 0:
+            while ai_pokemon_idx is None or ai_pokemon_idx <= 0 or ai_pokemon_idx >= len(player.get_party().get_as_list()):
                 ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
-            print("party size", len(player.get_party().get_as_list()))
-            print("pokemon index", ai_pokemon_idx)
             switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
-            print("pokemon name", switched_pokemon.get_name(), ai_pokemon_idx)
             player.get_party().make_starting(ai_pokemon_idx)
             self._alert('Switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', player)
             self._alert(
