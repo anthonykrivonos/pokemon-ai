@@ -2,10 +2,11 @@ from typing import *
 import numpy as np
 
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, Dense, Flatten
+from tensorflow.keras.layers import Input, Dense
 
-from ...model import ModelInterface
-from ..random_model import RandomModel
+from src.ai import ModelInterface
+
+from src.ai.models import RandomModel
 from src.classes import Player, Pokemon, Move, Item
 from src.utils.config import POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
 
@@ -14,17 +15,18 @@ from .mcts import MonteCarloNode, MonteCarloActionType
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
 
-# Input and output shapes of the network
-INPUT_SHAPE = (5, 12)  # (1 HP, 4 Moves) x 6 Pokemon x 2 Players
+# Input and output sizes of the network
+INPUT_SIZE = 60  # (1 HP, 4 Moves) x 6 Pokemon x 2 Players
 OUTPUT_SIZE = 31  # 6 switches + 4 Moves x 6 Pokemon + 1 outcome value
 
 
-def make_input_matrix(player: Player, other_player: Player) -> np.ndarray:
+def make_input_vector(player: Player, other_player: Player) -> np.ndarray:
     """
-    Creates an input matrix for the ConvNet.
+    Creates an input vector for the dense net.
     :param player: The focused player.
     :param other_player: The other player.
-    :return: A 5 x 12 numpy array with [HP ratio, Move 1 PP ratio, ... Move 4 PP ratio] at each row for max 12 Pokemon.
+    :return: A 60-len numpy array with [HP ratio, Move 1 PP ratio, ... Move 4 PP ratio] at each row for max 12 Pokemon,
+    flattened.
     """
     # Store each player's Pokemon lists
     player_pokemon = player.get_party().get_sorted_list()
@@ -66,7 +68,7 @@ def make_input_matrix(player: Player, other_player: Player) -> np.ndarray:
     fill_rows(other_player_pokemon)
     fill_empty(POKEMON_PARTY_LIMIT - len(other_player_pokemon))
 
-    return np.array(mat)
+    return np.array(mat).flatten()
 
 
 def make_actual_output_list(player: Player, node: MonteCarloNode) -> np.ndarray:
@@ -84,7 +86,11 @@ def make_actual_output_list(player: Player, node: MonteCarloNode) -> np.ndarray:
     switch_probs = [EPSILON] * len(player_pokemon)
     for child in node.children:
         if child.action_type == MonteCarloActionType.SWITCH:
-            switch_idx = list(node.childrenMap[child.token][MonteCarloActionType.SWITCH].keys())[0]
+            pkmn_id = child.action_descriptor
+            switch_idx = 0
+            for i, pkmn in enumerate(player_pokemon):
+                if pkmn.get_id() == pkmn_id:
+                    switch_idx = i
             switch_probs[switch_idx] = child.outcome / node.outcome
     # Create a tuple of switch probability / Pokemon values
     pokemon_switch_tuple: List[Tuple[float, Pokemon]] = []
@@ -102,8 +108,7 @@ def make_actual_output_list(player: Player, node: MonteCarloNode) -> np.ndarray:
     pkmn_id_to_move_prob_map = {}
     for child in node.children:
         if child.action_type == MonteCarloActionType.ATTACK:
-            move_idx = list(node.childrenMap[child.token][MonteCarloActionType.ATTACK].keys())[0]
-            pkmn_id = child.detokenize_child()
+            move_idx = child.action_descriptor
             if pkmn_id not in pkmn_id_to_move_prob_map:
                 pkmn_id_to_move_prob_map[pkmn_id] = [EPSILON] * POKEMON_MOVE_LIMIT
             pkmn_id_to_move_prob_map[pkmn_id][move_idx] = child.outcome / node.outcome
@@ -111,8 +116,16 @@ def make_actual_output_list(player: Player, node: MonteCarloNode) -> np.ndarray:
     # one by one.
     move_probs = []
     for pkmn in player.get_party().get_sorted_list():
-        for move_prob in pkmn_id_to_move_prob_map[pkmn.get_id()]:
-            move_probs.append(move_prob)
+        pkmn_id = pkmn.get_id()
+        move_probs_for_pkmn = []
+        if pkmn_id in pkmn_id_to_move_prob_map:
+            for move_prob in pkmn_id_to_move_prob_map[pkmn_id]:
+                move_probs_for_pkmn.append(move_prob)
+        while len(move_probs_for_pkmn) < 4:
+            move_probs_for_pkmn.append(EPSILON)
+        move_probs += move_probs_for_pkmn
+    while len(move_probs) < POKEMON_PARTY_LIMIT * POKEMON_MOVE_LIMIT:
+        move_probs += [EPSILON] * POKEMON_MOVE_LIMIT
 
     outcome_list = [node.outcome]
 
@@ -148,13 +161,10 @@ def create_model() -> Sequential:
     """
     return Sequential(
         [
-            Input(shape=INPUT_SHAPE),
-            Conv2D(32, kernel_size=(3, 3), activation="relu"),
-            MaxPooling2D(pool_size=(2, 2)),
-            Conv2D(64, kernel_size=(3, 3), activation="relu"),
-            MaxPooling2D(pool_size=(2, 2)),
-            Flatten(),
-            Dropout(0.5),
+            Input(shape=INPUT_SIZE),
+            Dense(128, activation="relu"),
+            Dense(64, activation="relu"),
+            Dense(32, activation="relu"),
             Dense(OUTPUT_SIZE, activation="relu"),
         ]
     )
@@ -174,7 +184,7 @@ def train_model(model: Sequential, input_matrices: List[np.ndarray], outputs: Li
 
 
 def predict_move(model: Sequential, player: Player, other_player: Player) -> ModelInterface:
-    input_matrix = make_input_matrix(player, other_player)
+    input_matrix = make_input_vector(player, other_player)
     output = model.predict(input_matrix)
 
     # Get the index of the 4 current Pokemon moves from the output

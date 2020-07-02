@@ -16,14 +16,15 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
     script_dir = os.path.dirname(__file__)
     rel_path = "pokemon.csv"
     abs_file_path = os.path.join(script_dir, rel_path)
-    
-    reader = csv.reader(open(abs_file_path, 'r'))
-    pokemon = {}
-    pokemon_names = []
-    for row in reader:
-        if len(row) != 0:
-            pokemon[row[0]] = row
-            pokemon_names.append(row[0])
+
+    with open(abs_file_path, 'r') as csv_file:
+        reader = csv.reader(csv_file)
+        pokemon = {}
+        pokemon_names = []
+        for row in reader:
+            if len(row) != 0:
+                pokemon[row[0]] = row
+                pokemon_names.append(row[0])
 
     info = pokemon[name_or_id.lower().capitalize()] if isinstance(name_or_id, str) else pokemon[pokemon_names[name_or_id]]
 

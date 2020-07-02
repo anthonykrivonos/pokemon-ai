@@ -290,9 +290,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                                        [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
-                    print(player.get_name())
-                    print("party", len(player.get_party().get_as_list()))
-                    print("switches", [switch[0].get_name() for switch in switches])
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
