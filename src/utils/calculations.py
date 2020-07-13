@@ -1,4 +1,5 @@
 import sys
+from typing import *
 from os.path import join, dirname
 from math import sqrt, log
 
@@ -255,6 +256,17 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
 ##
 # Math Functions
 ##
+
+def to_probs(nums: Union[List[float], List[int]]) -> List[float]:
+    min_num = min(nums)
+    # Floor to 0
+    if min_num < 0:
+        nums = [num + abs(min_num) for num in nums]
+    # Divide by sum
+    sum_num = sum(nums)
+    nums = [num / sum_num for num in nums]
+    return nums
+
 
 def outcome_func_v1(player: Player, opponent: Player) -> float:
     """

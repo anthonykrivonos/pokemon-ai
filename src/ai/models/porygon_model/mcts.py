@@ -2,14 +2,13 @@ from typing import *
 from enum import Enum
 from copy import deepcopy
 from random import seed, random, shuffle
+from pptree import print_tree
 
 from src.classes import Player, Move, Item, Pokemon
 from src.battle import Battle
 from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
-
-from pptree import print_tree
 
 
 class MonteCarloActionType(Enum):
@@ -103,9 +102,7 @@ class MonteCarloNode:
     def detokenize_child(self) -> int:
         """
         Returns the Pokemon ID of Pokemon associated with the node.
-        :param pokemon: A Pokemon.
-        :param action_type: A MonteCarloActionType.
-        :return: A tokenized string.
+        :return: The ID of the Pokemon.
         """
         return int(self.token.split('-')[0])
 
