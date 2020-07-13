@@ -1,14 +1,14 @@
 from typing import *
 import numpy as np
 
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input, Dense
+from sklearn.neural_network import MLPRegressor
 
 from src.ai import ModelInterface
 
 from src.ai.models import RandomModel
 from src.classes import Player, Pokemon, Move, Item
 from src.utils.config import POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
+from src.utils import to_probs
 
 from .mcts import MonteCarloNode, MonteCarloActionType
 
@@ -154,38 +154,50 @@ def calculate_loss(game_output: np.ndarray, output: np.ndarray):
     return outcome_loss + policy_comp
 
 
-def create_model() -> Sequential:
+def create_model() -> MLPRegressor:
     """
-    Create a sequential model for training.
-    :return: A Sequential model.
+    Create an MLP model for training.
+    :return: An MLP model.
     """
-    return Sequential(
-        [
-            Input(shape=INPUT_SIZE),
-            Dense(128, activation="relu"),
-            Dense(64, activation="relu"),
-            Dense(32, activation="relu"),
-            Dense(OUTPUT_SIZE, activation="relu"),
-        ]
+    return MLPRegressor(
+        hidden_layer_sizes=(INPUT_SIZE * 4, INPUT_SIZE * 2),
+        activation='relu',
+        solver='adam',
+        alpha=0.0001,
+        batch_size='auto',
+        learning_rate="constant",
+        learning_rate_init=0.001,
+        power_t=0.5,
+        max_iter=200,
+        shuffle=False,
+        random_state=None,
+        tol=1e-4,
+        verbose=True,
+        warm_start=False,
+        momentum=0.9,
+        nesterovs_momentum=True,
+        early_stopping=False,
+        validation_fraction=0.1,
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-8,
+        n_iter_no_change=10
     )
 
 
-def train_model(model: Sequential, input_matrices: List[np.ndarray], outputs: List[np.ndarray], batch_size=32, epochs=15) -> None:
+def train_model(model: MLPRegressor, input_list: np.ndarray, output_list: np.ndarray) -> None:
     """
     Trains a sequential model given a list of inputs and outputs.
     :param model: The model to train.
-    :param input_matrices: The inputs.
-    :param outputs: The outputs.
-    :param batch_size: The number of inputs to train per batch.
-    :param epochs: The number of epochs to train for.
+    :param input_list: The input list.
+    :param output_list: The output list.
     """
-    model.compile(loss=calculate_loss, optimizer='adam')
-    model.fit(input_matrices, outputs, batch_size=batch_size, epochs=epochs)
+    model.fit([input_list], [output_list])
 
 
-def predict_move(model: Sequential, player: Player, other_player: Player) -> ModelInterface:
+def predict_move(model: MLPRegressor, player: Player, other_player: Player) -> Tuple[ModelInterface, List[float], List[float]]:
     input_matrix = make_input_vector(player, other_player)
-    output = model.predict(input_matrix)
+    output = model.predict([input_matrix])[0]
 
     # Get the index of the 4 current Pokemon moves from the output
     current_pokemon_id = player.get_party().get_starting().get_id()
@@ -210,7 +222,7 @@ def predict_move(model: Sequential, player: Player, other_player: Player) -> Mod
     model = RandomModel
 
     if highest_move_prob >= highest_switch_prob:
-        highest_move_idx = move_probs.index(highest_move_prob)
+        highest_move_idx = list(move_probs).index(highest_move_prob)
         attack = player.get_party().get_starting().get_move_bank().get_as_list()[highest_move_idx]
 
         # Create a turn function
@@ -221,7 +233,7 @@ def predict_move(model: Sequential, player: Player, other_player: Player) -> Mod
         # Create the model
         model.take_turn = take_turn
     else:
-        highest_switch_idx = switch_probs.index(highest_switch_prob)
+        highest_switch_idx = list(switch_probs).index(highest_switch_prob)
 
         # Create a turn function
         def take_turn(_: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
@@ -231,4 +243,4 @@ def predict_move(model: Sequential, player: Player, other_player: Player) -> Mod
         # Create the model
         model.take_turn = take_turn
 
-    return model
+    return model, to_probs(move_probs), to_probs(switch_probs)
