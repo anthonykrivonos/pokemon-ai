@@ -32,6 +32,24 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()
     return damage, effectiveness, critical
 
+def calculate_damage_deterministic(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int, Effectiveness, Criticality):
+    """
+    Calculates deterministic damage from the pokemon to the on_pokemon.
+    :param move: The move pokemon attacks on_pokemon with.
+    :param pokemon: The attacking Pokemon.
+    :param on_pokemon: The defending Pokemon.
+    :return: A tuple containing damage dealt, the level of effectiveness of the move, and a critical hit value (2 for critical hit, 1 for regular).
+    """
+    critical = chance(0, lambda: Criticality.CRITICAL, lambda: Criticality.NOT_CRITICAL)
+    random = random_pct(100, 100)
+    effectiveness = is_effective(move.get_type(), on_pokemon.get_type())
+    modifier = critical.value * random * effectiveness.value
+    attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
+    defense = pokemon.get_stats().get_special_defense() if move.is_special() else pokemon.get_stats().get_defense()
+    damage = max(0, int(((((((2 * pokemon.get_level()) / 5) + 2) * move.get_base_damage() * (attack / defense)) / 50) + 2) * modifier))
+    damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()
+    return damage, effectiveness, critical
+
 
 def upper_confidence_bounds(node_wins, node_visits, parent_visits, c=sqrt(2)) -> float:
     """
