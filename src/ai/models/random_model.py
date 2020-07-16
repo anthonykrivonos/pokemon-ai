@@ -23,6 +23,7 @@ def take_turn(player: Player, other_player: Player, attack: Callable[[Move], Non
                 break
     else:
         # Perform a switch
+<<<<<<< HEAD
         idx = force_switch_pokemon(player.get_party())
         switch_pokemon_at_idx(idx)
 
@@ -33,6 +34,17 @@ def force_switch_pokemon(party: Party) -> int:
     for i, pokemon in party_list:
         if not pokemon.is_fainted():
             return i
+=======
+        idx = RandomModel().force_switch_pokemon(player.get_party())
+        switch_pokemon_at_idx(idx)
+
+
+def force_switch_pokemon(party: Party):
+    party_list = deepcopy(party.get_as_list())[1:]
+    for i, pokemon in enumerate(party_list):
+        if pokemon.get_hp() != 0:
+            return i+1
+>>>>>>> Fixed switching (maybe?)
     return 0
 
 

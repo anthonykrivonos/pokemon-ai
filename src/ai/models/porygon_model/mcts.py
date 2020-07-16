@@ -287,6 +287,12 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                                        [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
+<<<<<<< HEAD
+=======
+                    #print(player.get_name())
+                    #print("party", len(player.get_party().get_as_list()))
+                    #print("switches", [switch[0].get_name() for switch in switches])
+>>>>>>> Fixed switching (maybe?)
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
@@ -378,6 +384,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                     # Add switch
                     insert_node(create_node(node_player, MonteCarloActionType.SWITCH, switch_idx), node, node_player, node_other_player, is_simulating=True)
 
+
         # simulate rest of battle with random moves
         node_player.set_model(RandomModel())
         node_other_player.set_model(RandomModel())
@@ -395,14 +402,14 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
 
 
 if __name__ == "__main__":
-    party1 = get_party("venusaur")
-    party2 = get_party("charizard")
+    party1 = get_party("charizard", "geodude")
+    party2 = get_party("venusaur", "squirtle")
     print("%s vs. %s" % (', '.join([pkmn._name for pkmn in party1._pokemon_list]), ', '.join([pkmn._name for pkmn in party2._pokemon_list])))
 
     player1 = Player("Player 1", party1, None, RandomModel(), player_id=1)
     player2 = Player("Player 2", party2, None, RandomModel(), player_id=2)
 
-    tree = make_tree(player1, player2, 2500)
+    tree = make_tree(player1, player2, 10)
     tree.print()
 
     outcome_probs = tree.get_action_probabilities()
