@@ -6,31 +6,7 @@ from ..model import ModelInterface
 from src.classes import Player, Move, Item, Party
 from src.utils import calculate_damage_deterministic
 
-# use the most effective move, otherwise use the highest base power move
-def take_turn(player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None],
-              switch_pokemon_at_idx: Callable[[int], None]) -> None:
-    pokemon = player.get_party().get_starting()
-    enemy = other_player.get_party().get_starting()
-
-    damage_list = []
-
-    for move in pokemon.get_move_bank().get_as_list():
-        if move.is_available():
-            damage = calculate_damage_deterministic(move, pokemon, enemy)[0]
-            damage_list.append((move, damage))
-
-    damage_list.sort(reverse=True, key=lambda x: x[1])
-
-    attack(damage_list[0][0])
-
-
-def force_switch_pokemon(party: Party):
-    party_list = deepcopy(party.get_as_list())
-    shuffle(party_list)
-    for i, pokemon in enumerate(party_list):
-        if pokemon.get_hp() != 0:
-            return i
-    return 0
+from .random_model import RandomModel
 
 
 class DamageModel(ModelInterface):
@@ -39,5 +15,25 @@ class DamageModel(ModelInterface):
     """
 
     def __init__(self):
-        self.take_turn = take_turn
-        self.force_switch_pokemon = force_switch_pokemon
+        pass
+
+    # use the most effective move, otherwise use the highest base power move
+    def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None],
+                  use_item: Callable[[Item], None],
+                  switch_pokemon_at_idx: Callable[[int], None]) -> None:
+        pokemon = player.get_party().get_starting()
+        enemy = other_player.get_party().get_starting()
+
+        damage_list = []
+
+        for move in pokemon.get_move_bank().get_as_list():
+            if move.is_available():
+                damage = calculate_damage_deterministic(move, pokemon, enemy)[0]
+                damage_list.append((move, damage))
+
+        damage_list.sort(reverse=True, key=lambda x: x[1])
+
+        attack(damage_list[0][0])
+
+    def force_switch_pokemon(self, party: Party):
+        return RandomModel().force_switch_pokemon(party)

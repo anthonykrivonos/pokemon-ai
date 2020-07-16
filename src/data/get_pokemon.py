@@ -65,7 +65,7 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
         if info[i] != '':
             status = Status(status_map[info[i + 5]]) if info[i + 5] != "none" else None
             move_bank.append(Move(info[i], int(info[i + 1]), int(info[i + 2]), PokemonType(type_map[info[i + 3]]),
-                                  info[i + 4] is "special", int(info[i + 6]), status))
+                                  info[i + 4] == "special", int(info[i + 6]), status))
         i += 7
 
     return Pokemon(PokemonType(type_map[info[1]]), info[0], int(info[2]), Stats(int(info[4]), int(info[6]), int(info[5]), int(info[7]), int(info[8])), MoveBank(move_bank), int(info[3]))

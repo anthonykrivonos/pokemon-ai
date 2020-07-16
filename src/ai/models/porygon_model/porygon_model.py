@@ -1,36 +1,13 @@
 from typing import *
 
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
-from random import shuffle
-
 from src.classes import Player, Party, Move, Item
 from .mcts import make_tree
+from ..random_model import RandomModel
 
 from src.ai import ModelInterface
 
-NUM_SIMULATIONS = 25
-
-
-def take_turn(player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None],
-              switch_pokemon_at_idx: Callable[[int], None]) -> None:
-    with ThreadPoolExecutor() as executor:
-        make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, verbose=False)
-        print("%s is formulating a move..." % player.get_name())
-        tree = make_tree_thread.result()
-        model = tree.get_next_action()
-        print("Done")
-        model.take_turn(player, other_player, attack, use_item, switch_pokemon_at_idx)
-
-
-def force_switch_pokemon(party: Party):
-    party_list = deepcopy(party.get_as_list()[1:])
-    shuffle(party_list)
-    for j, pokemon in enumerate(party_list):
-        i = j + 1
-        if not pokemon.is_fainted():
-            return i
-    return 0
+NUM_SIMULATIONS = 50
 
 
 class PorygonModel(ModelInterface):
@@ -39,5 +16,16 @@ class PorygonModel(ModelInterface):
     """
 
     def __init__(self):
-        self.take_turn = take_turn
-        self.force_switch_pokemon = force_switch_pokemon
+        pass
+
+    def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
+        with ThreadPoolExecutor() as executor:
+            make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, verbose=False)
+            print("%s is formulating a move..." % player.get_name())
+            tree = make_tree_thread.result()
+            model = tree.get_next_action()
+            print("Done")
+            model.take_turn(player, other_player, attack, use_item, switch_pokemon_at_idx)
+
+    def force_switch_pokemon(self, party: Party):
+        return RandomModel().force_switch_pokemon(party)

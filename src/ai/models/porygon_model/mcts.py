@@ -10,11 +10,9 @@ from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
 
-
 class MonteCarloActionType(Enum):
     ATTACK = 0
     SWITCH = 1
-
 
 class MonteCarloNode:
 
@@ -116,11 +114,11 @@ class MonteCarloNode:
 
 class MonteCarloTree:
 
-    def __init__(self, root=MonteCarloNode()):
+    def __init__(self, root=None):
         """
         Initializes a MonteCarloTree.
         """
-        self.root = root
+        self.root = root if root is not None else MonteCarloNode()
 
     def print(self):
         """
@@ -221,7 +219,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                 action_descriptor = switch_pokemon.get_id()
                 description = "%s switched out with %s." % (pokemon.get_name(), switch_pokemon.get_name())
 
-            # Make the bot move on this child's turn
+            # Create the "turn" to be taken when this node is visited
             model = RandomModel()
 
             if action_type == MonteCarloActionType.ATTACK:
@@ -233,7 +231,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                               switch_pokemon_at_idx: Callable[[int], None]):
                     switch_pokemon_at_idx(index)
 
-            # Add switch logic
             model.take_turn = take_turn
 
             # Return the move node
@@ -287,12 +284,6 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
                                        [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
                     node_player_new = player.copy()
-<<<<<<< HEAD
-=======
-                    #print(player.get_name())
-                    #print("party", len(player.get_party().get_as_list()))
-                    #print("switches", [switch[0].get_name() for switch in switches])
->>>>>>> Fixed switching (maybe?)
                     child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
                     insert_node(child, node, node_player_new, other_player.copy())
 
@@ -327,7 +318,7 @@ def make_tree(player: Player, other_player: Player, num_plays=1, verbose=False):
             if i % 2 == 0:
                 tree_queue.insert(0, (c_node, other_player.copy(), player.copy()))
             else:
-                tree_queue.insert(0, (c_node, other_player.copy(), player.copy()))
+                tree_queue.insert(0, (c_node, player.copy(), other_player.copy()))
 
             i += 1
             c_node = c_node.parent
@@ -409,7 +400,7 @@ if __name__ == "__main__":
     player1 = Player("Player 1", party1, None, RandomModel(), player_id=1)
     player2 = Player("Player 2", party2, None, RandomModel(), player_id=2)
 
-    tree = make_tree(player1, player2, 10)
+    tree = make_tree(player1, player2, 1000)
     tree.print()
 
     outcome_probs = tree.get_action_probabilities()
