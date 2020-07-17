@@ -5,16 +5,16 @@ sys.path.append(join(dirname(__file__), '../..'))
 from src.battle import Battle
 from src.classes import Bag, Party, Player, Move, MoveBank, Pokemon, Stats, PokemonType
 from src.data import get_random_party, get_party
-from src.ai import DamageModel, PorygonModel
+from src.ai import DamageModel, PorygonModel, RandomModel
 
 win_count = {}
 
-for i in range(1):
-    party1 = get_party("squirtle", "charizard", "wartortle")
-    party2 = get_party("bulbasaur", "venusaur", "ivysaur")
+for i in range(3):
+    party1 = get_party("charizard", "venusaur")
+    party2 = get_party("blastoise", "tentacruel")
 
-    player1 = Player("MCTS", party1, Bag(), PorygonModel())
-    player2 = Player("GET HIT WIT ALLA DAT", party2, Bag(), DamageModel())
+    player1 = Player("MCTS", party1, Bag(), PorygonModel(), player_id=1)
+    player2 = Player("GET HIT WIT ALLA DAT", party2, Bag(), RandomModel(), player_id=2)
 
     battle = Battle(player1, player2, 1)
     winner = battle.play()
@@ -34,5 +34,3 @@ for i in range(1):
 #     win_count[winner.get_name()] = int(0 if win_count.get(winner.get_name()) is None else win_count.get(winner.get_name())) + 1
 
 print(win_count)
-
-

@@ -306,10 +306,7 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
         hp_dealt += pokemon.get_base_hp() - pokemon.get_hp()
         opp_fainted_count += int(pokemon.get_hp() == 0)
 
-    if player_fainted_count == len(player.get_party().get_as_list()):
-        outcome = .2
-    else:
-        outcome = .8
+    outcome = 0.2 if player_fainted_count == len(player.get_party().get_as_list()) else 0.8
 
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp

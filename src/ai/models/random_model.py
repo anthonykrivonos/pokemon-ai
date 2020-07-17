@@ -40,5 +40,4 @@ class RandomModel(ModelInterface):
         for i, pokemon in enumerate(party_list):
             if pokemon.get_hp() != 0 and pokemon.get_id() != party.get_starting().get_id():
                 return i
-
         return 0

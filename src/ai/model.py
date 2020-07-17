@@ -9,7 +9,6 @@ class ModelInterface:
         self.take_turn = take_turn
         self.force_switch_pokemon = force_switch_pokemon
 
-    @staticmethod
     def take_turn(player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]):
         """
         Placeholder for taking a turn using the model's algorithm.
@@ -21,7 +20,6 @@ class ModelInterface:
         """
         pass
 
-    @staticmethod
     def force_switch_pokemon(party: Party) -> int:
         """
         Returns the index of the Pokemon to switch in.
