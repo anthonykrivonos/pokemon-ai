@@ -27,7 +27,25 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     effectiveness = is_effective(move.get_type(), on_pokemon.get_type())
     modifier = critical.value * random * effectiveness.value
     attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
-    defense = pokemon.get_stats().get_special_defense() if move.is_special() else pokemon.get_stats().get_defense()
+    defense = on_pokemon.get_stats().get_special_defense() if move.is_special() else on_pokemon.get_stats().get_defense()
+    damage = max(0, int(((((((2 * pokemon.get_level()) / 5) + 2) * move.get_base_damage() * (attack / defense)) / 50) + 2) * modifier))
+    damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()
+    return damage, effectiveness, critical
+
+def calculate_damage_deterministic(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int, Effectiveness, Criticality):
+    """
+    Calculates deterministic damage from the pokemon to the on_pokemon.
+    :param move: The move pokemon attacks on_pokemon with.
+    :param pokemon: The attacking Pokemon.
+    :param on_pokemon: The defending Pokemon.
+    :return: A tuple containing damage dealt, the level of effectiveness of the move, and a critical hit value (2 for critical hit, 1 for regular).
+    """
+    critical = chance(0, lambda: Criticality.CRITICAL, lambda: Criticality.NOT_CRITICAL)
+    random = random_pct(100, 100)
+    effectiveness = is_effective(move.get_type(), on_pokemon.get_type())
+    modifier = critical.value * random * effectiveness.value
+    attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
+    defense = on_pokemon.get_stats().get_special_defense() if move.is_special() else on_pokemon.get_stats().get_defense()
     damage = max(0, int(((((((2 * pokemon.get_level()) / 5) + 2) * move.get_base_damage() * (attack / defense)) / 50) + 2) * modifier))
     damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()
     return damage, effectiveness, critical
@@ -288,10 +306,7 @@ def outcome_func_v1(player: Player, opponent: Player) -> float:
         hp_dealt += pokemon.get_base_hp() - pokemon.get_hp()
         opp_fainted_count += int(pokemon.get_hp() == 0)
 
-    if player_fainted_count == len(player.get_party().get_as_list()):
-        outcome = .15
-    else:
-        outcome = .85
+    outcome = 0.2 if player_fainted_count == len(player.get_party().get_as_list()) else 0.8
 
     # Outcome = %hp_dealt - %hp_taken + %pokemon_killed - (%pokemon_fainted)^2
     hp_perc_diff = hp_dealt / opp_total_hp - hp_taken / player_total_hp

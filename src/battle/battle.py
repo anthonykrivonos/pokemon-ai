@@ -28,6 +28,7 @@ class Battle:
         self.started = False
         self.ended = False
         self.use_hints = use_hints
+        self.turn_count = 1
 
     def play_turn(self) -> Player:
         """
@@ -38,6 +39,7 @@ class Battle:
             self._battle_start(self.player1, self.player2)
 
         if self.verbose == 1:
+            print("\nTURN", self.turn_count)
             pokemon = self.player1.get_party().get_starting()
             other_pokemon = self.player2.get_party().get_starting()
             print(pokemon.get_name(), " - ", pokemon.get_hp())
@@ -51,7 +53,6 @@ class Battle:
             if self.verbose == 2:
                 clear_battle_screen()
 
-
         # Perform attacks and get a winner
         self._turn_perform_attacks(self.player1, self.player2)
         winner = self._check_win()
@@ -63,6 +64,7 @@ class Battle:
         # End both players' turns and continue
         self._turn_end(self.player1)
         self._turn_end(self.player2)
+        self.turn_count += 1
 
         return None
 
@@ -330,7 +332,7 @@ class Battle:
                     player.get_party().make_starting(idx)
                     return True
         elif player.is_ai():
-            while ai_pokemon_idx is None or ai_pokemon_idx <= 0 or ai_pokemon_idx >= len(player.get_party().get_as_list()):
+            while ai_pokemon_idx == 0 or ai_pokemon_idx is None:
                 ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
             switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
             player.get_party().make_starting(ai_pokemon_idx)
@@ -408,7 +410,7 @@ class Battle:
                 self._alert(pokemon.get_name() + '\'s attack missed.', player, on_player)
                 return False
 
-            self._alert(pokemon.get_name() + ' used ' + move.get_name() + '!', player, on_player)
+            self._alert(player.get_name() + "'s " + pokemon.get_name() + ' used ' + move.get_name() + '!', player, on_player)
 
             if move.is_damaging():
                 # Calculate damage
