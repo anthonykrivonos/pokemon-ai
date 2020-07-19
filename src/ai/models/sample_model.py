@@ -9,9 +9,6 @@ class SampleModel(ModelInterface):
     A sample model used to show how to create classes.
     """
 
-    def __init__(self):
-        pass
-
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None],
                   use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
         # I don't know what to do yet, so I'll just attack with my pokemon's first move.

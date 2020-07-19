@@ -276,6 +276,8 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
 ##
 
 def to_probs(nums: Union[List[float], List[int]]) -> List[float]:
+    if all([n == 0.0 for n in nums]):
+        return len(nums) * [1/len(nums)]
     min_num = min(nums)
     # Floor to 0
     if min_num < 0:

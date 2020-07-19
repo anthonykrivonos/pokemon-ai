@@ -11,9 +11,6 @@ class RandomModel(ModelInterface):
     A model that picks random moves.
     """
 
-    def __init__(self):
-        pass
-
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None],
                   use_item: Callable[[Item], None],
                   switch_pokemon_at_idx: Callable[[int], None]) -> None:

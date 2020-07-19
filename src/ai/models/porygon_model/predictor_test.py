@@ -65,5 +65,6 @@ class PredictorTestSuite(unittest.TestCase):
         print('Venusaur against Charmander:')
         print(["%s (prob. %.4f)" % (move.get_name(), prob) for move, prob in zip(player1.get_party().get_starting().get_move_bank().get_as_list(), move_probs)])
 
+
 if __name__ == '__main__':
     unittest.main()

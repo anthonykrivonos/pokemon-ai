@@ -14,9 +14,6 @@ class DamageModel(ModelInterface):
     A model that picks random moves.
     """
 
-    def __init__(self):
-        pass
-
     # use the most effective move, otherwise use the highest base power move
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None],
                   use_item: Callable[[Item], None],
