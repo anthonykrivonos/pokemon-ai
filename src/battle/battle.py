@@ -5,8 +5,8 @@ from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
 from src.classes import Status, status_names, Pokemon, Player, PokemonType, Move, Effectiveness, Item, Criticality
-from src.utils import print_battle_screen, clear, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, \
-    random_int, get_terminal_dimensions, is_effective
+from src.utils import print_battle_screen, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, \
+    is_effective
 
 
 class Battle:
@@ -95,7 +95,7 @@ class Battle:
     # Alert
     ##
 
-    def _alert(self, message: str, *players: List[Player]):
+    def _alert(self, message: str, *players: Player):
         """
         Alert a message that non-AI users have to respond "OK" to.
         :param message: The message to write.
@@ -124,6 +124,10 @@ class Battle:
         player1._id = self._PLAYER_1_ID
         player2._id = self._PLAYER_2_ID
 
+        # Reveal starting Pokemon
+        player1.get_party().get_starting().reveal()
+        player2.get_party().get_starting().reveal()
+
         if self.verbose >= 1:
             # Clear the terminal window
             #clear(get_terminal_dimensions()[1])
@@ -141,20 +145,22 @@ class Battle:
         if not player.is_ai():
             turn_complete = False
             while not turn_complete:
-                if not player.is_ai():
-                    pokemon = player.get_party().get_starting()
-                    move = prompt_multi('What will ' + player.get_name() + '\'s ' + pokemon.get_name() + ' do?',
-                                        "Attack",
-                                        "Bag",
-                                        "Switch Pokemon",
-                                        "Forfeit"
-                                        )[0]
+                pokemon = player.get_party().get_starting()
+                move = prompt_multi('What will ' + player.get_name() + '\'s ' + pokemon.get_name() + ' do?',
+                                    "Attack",
+                                    "Bag",
+                                    "Switch Pokemon",
+                                    "Check Opponent's Pokemon",
+                                    "Forfeit"
+                                    )[0]
                 if move == 0:
                     turn_complete = self._turn_attack(player)
                 elif move == 1:
                     turn_complete = self._turn_bag(player)
                 elif move == 2:
                     turn_complete = self._turn_switch_pokemon(player)
+                elif move == 3:
+                    turn_complete = self._turn_check_pokemon(player)
                 else:
                     clear_battle_screen()
                     self._alert(player.get_name() + ' forfeits...', player)
@@ -235,8 +241,8 @@ class Battle:
         pokemon = player.get_party().get_starting()
         other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
         on_pokemon = other_player.get_party().get_starting()
+        move = None
         if not player.is_ai():
-            move = None
             while move is None or not move.is_available():
                 move_idx = prompt_multi('Seslect a move.', 'None (Go back)',
                                         *[m.get_name() + ': ' + PokemonType(m.get_type()).name.lower().capitalize() +
@@ -250,7 +256,13 @@ class Battle:
                 if not move.is_available():
                     self._alert("There's no PP left for this move!", player)
         elif ai_move is not None:
-            move = ai_move
+            # ai_move contains the same move on another copy of the player's Pokemon, so we have to retrieve the
+            # same move in the current in-game Pokemon
+            ai_move_name = ai_move.get_name()
+            for temp_move in player.get_party().get_starting().get_move_bank().get_as_list():
+                if temp_move.get_name() == ai_move_name:
+                    move = temp_move
+                    break
         else:
             return False
 
@@ -306,7 +318,7 @@ class Battle:
             while True:
                 # Write the options out
                 options = [p.get_name() + " (" + str(p.get_hp()) + "/" + str(p.get_base_hp()) + " HP)" for p in
-                           player.get_party().get_as_list()]
+                           player.get_party().get_as_list()[1:]]
                 if none_option:
                     options.insert(0, 'None (Go back)')
                 item = prompt_multi('Which Pokémon would you like to switch in?', *options)[0]
@@ -324,6 +336,9 @@ class Battle:
                 elif idx == 0:
                     self._alert(switched_pokemon.get_name() + ' is currently in battle.', player)
                 else:
+                    if current_pokemon.get_status() == Status.CONFUSION:
+                        current_pokemon.set_status(None)
+                    switched_pokemon.reveal()
                     self._alert('Switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.',
                                 player)
                     self._alert(
@@ -336,6 +351,9 @@ class Battle:
                 ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
             switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
             player.get_party().make_starting(ai_pokemon_idx)
+            if current_pokemon.get_status() == Status.CONFUSION:
+                current_pokemon.set_status(None)
+            switched_pokemon.reveal()
             self._alert('Switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.', player)
             self._alert(
                 player.get_name() + ' switched ' + current_pokemon.get_name() + ' with ' + switched_pokemon.get_name() + '.',
@@ -343,6 +361,21 @@ class Battle:
             return True
         else:
             return False
+
+    def _turn_check_pokemon(self, player: Player):
+        other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
+        clear_battle_screen()
+        for i, pokemon in enumerate(other_player.get_party().get_as_list()):
+            if pokemon.is_revealed():
+                print("%d. %s (%s) %d/%d HP" % (
+                    i + 1, pokemon.get_name(), pokemon.get_type().name, pokemon.get_hp(), pokemon.get_base_hp())
+                )
+            else:
+                print("%d. ??? (???) – ?/?" % (i + 1))
+            move_str = "  "
+            for move in pokemon.get_move_bank().get_as_list():
+                move_str += "· %s  " % (move.get_name() if (pokemon.is_revealed() and move.is_revealed()) else "???")
+            print(move_str)
 
     def _turn_perform_attacks(self, player_a: Player, player_b: Player):
         """
@@ -401,6 +434,7 @@ class Battle:
         def try_attack():
             # Decrease the PP on the move
             move.dec_pp()
+            move.reveal()
 
             # Checks to see if the attack hit
             change_of_hit = pokemon.get_stats().get_accuracy() / 100 * on_pokemon.get_stats().get_evasiveness() / 100
@@ -435,11 +469,9 @@ class Battle:
             if move.get_status_inflict():
                 if move.get_status_inflict() in [Status.POISON, Status.BAD_POISON, Status.BURN]:
                     # Unlike status turns, other status turns increase in length because they don't end
-                    on_pokemon._other_status = move.get_status_inflict()
-                    on_pokemon._other_status_turns = 0
+                    on_pokemon.set_other_status(move.get_status_inflict())
                 else:
-                    on_pokemon._status = move.get_status_inflict()
-                    on_pokemon._status_turns = random_int(1, 7)
+                    on_pokemon.set_status(move.get_status_inflict())
                 self._alert(on_pokemon.get_name() + ' was ' + status_names[move.get_status_inflict()], player,
                             on_player)
 

@@ -26,7 +26,6 @@ class PorygonModel(ModelInterface):
             model = tree.get_next_action()
             print("Done")
             model.take_turn(player, other_player, attack, use_item, switch_pokemon_at_idx)
-            tree.print()
 
     def force_switch_pokemon(self, party: Party):
         return RandomModel().force_switch_pokemon(party)
