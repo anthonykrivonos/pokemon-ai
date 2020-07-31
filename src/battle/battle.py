@@ -13,7 +13,7 @@ class Battle:
     _PLAYER_1_ID = 1
     _PLAYER_2_ID = 2
 
-    def __init__(self, player1: Player, player2: Player, verbose: int = 1, use_hints=False):
+    def __init__(self, player1: Player, player2: Player, verbose: int = 1, use_hints=False, use_revealing=True):
         """
         Initializes a battle.
         :param player1: The first player.
@@ -29,6 +29,7 @@ class Battle:
         self.ended = False
         self.use_hints = use_hints
         self.turn_count = 1
+        self._reveal_all(use_revealing, player1, player2)
 
     def play_turn(self) -> Player:
         """
@@ -552,3 +553,15 @@ class Battle:
         elif player_2_won:
             return self.player2
         return None
+
+    ##
+    # Utility Functions
+    ##
+
+    @staticmethod
+    def _reveal_all(use_revealing: bool, player1: Player, player2: Player) -> None:
+        for player in [player1, player2]:
+            for pkmn in player.get_party().get_as_list():
+                pkmn.hide() if use_revealing else pkmn.reveal()
+                for move in pkmn.get_move_bank().get_as_list():
+                    move.hide() if use_revealing else move.reveal()

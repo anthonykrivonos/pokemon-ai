@@ -138,3 +138,6 @@ class Pokemon:
 
     def reveal(self):
         self._revealed = True
+
+    def hide(self):
+        self._revealed = False
