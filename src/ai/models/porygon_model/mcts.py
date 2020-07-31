@@ -10,9 +10,13 @@ from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
 
+from src.ai.models.porygon_model.predictor import Predictor
+
+
 class MonteCarloActionType(Enum):
     ATTACK = 0
     SWITCH = 1
+
 
 class MonteCarloNode:
 
@@ -157,15 +161,19 @@ class MonteCarloTree:
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
-def make_tree(player_real: Player, other_player_real: Player, num_plays=1, verbose=False):
+def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_predictor=True, verbose=False):
     """
     Creates a MonteCarloTree of actions for the given battle.
-    :param player: The player to find actions for.
-    :param other_player: The opposing player.
+    :param player_real: The player to find actions for.
+    :param other_player_real: The opposing player.
     :param num_plays: The number of Monte Carlo simulations to perform.
+    :param use_predictor: Use a neural network to weigh moves?
     :param verbose: Should the algorithm announce its current actions?
     :return: A MonteCarloTree.
     """
+
+    # Create neural network
+    predictor = Predictor(verbose=verbose)
 
     # Create tree
     tree = MonteCarloTree()
@@ -330,6 +338,8 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, verbo
 
                 # Get turn outcome
                 if winner is not None:
+                    # Train the predictor
+                    predictor.train_model(root, player, other_player)
                     break
 
             # If len(move_queue) == 1 and the battle has not ended yet, add a random move for the opponent
@@ -366,13 +376,19 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, verbo
                     # Add switch to move_queue
                     move_queue.append(create_node(other_player, MonteCarloActionType.SWITCH, switch_idx))
 
+                # Predict the output
+                model, move_probs, switch_probs = predictor.predict_move(player, other_player)
+
+                print('%s against %s:' % (player.get_party().get_starting().get_name(), other_player.get_party().get_starting().get_name()))
+                print(["%s (prob. %.4f)" % (move.get_name(), prob) for move, prob in zip(player.get_party().get_starting().get_move_bank().get_as_list(), move_probs)])
+                print(["Switch to %s (prob. %.4f)" % (pkmn.get_name(), prob) for pkmn, prob in zip(player.get_party().get_sorted_list(), switch_probs)])
+
 
         # Simulate the rest of the battle with random moves
         player.set_model(RandomModel())
         other_player.set_model(RandomModel())
 
-        while winner is None:
-            winner = battle.play()
+        battle.play()
 
         outcome = calculations.outcome_func_v1(player, other_player)
 

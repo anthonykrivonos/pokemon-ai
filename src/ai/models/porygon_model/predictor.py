@@ -5,10 +5,7 @@ from sklearn.neural_network import MLPRegressor
 
 from src.ai.models import RandomModel
 from src.classes import Player, Pokemon, Move, Item
-from src.utils.config import POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
-from src.utils import to_probs
-
-from .mcts import MonteCarloNode, MonteCarloActionType
+from src.utils import to_probs, POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
 
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
@@ -24,6 +21,7 @@ class Predictor:
         """
         Create an MLP model for training.
         """
+        self._is_trained = False
         self._model = MLPRegressor(
             hidden_layer_sizes=hidden_layer_sizes,
             activation='relu',
@@ -49,22 +47,26 @@ class Predictor:
             n_iter_no_change=10
         )
 
-    def train_model(self, node: MonteCarloNode, player: Player, other_player: Player) -> None:
+    def train_model(self, node: Any, player: Player, other_player: Player) -> None:
         """
         Trains a sequential model given a list of inputs and outputs.
         :param node: The node where the decision must be made.
         :param player: The player.
         :param other_player: The opposing player.
         """
+        self._is_trained = True
         self._model.fit([self._make_input_vector(player, other_player)], [self._make_actual_output_list(player, node)])
 
-    def predict_move(self, player: Player, other_player: Player) -> Tuple[Type[RandomModel], List[float], List[float]]:
+    def predict_move(self, player: Player, other_player: Player) -> Tuple[RandomModel, List[float], List[float]]:
         """
         Predict the move the player should make.
         :param player: The player.
         :param other_player: The opposing player.
         :return: A tuple containing the <move model, move probabilities, switch-out probabilities>.
         """
+        if not self._is_trained:
+            return RandomModel(), POKEMON_MOVE_LIMIT*[round(1/POKEMON_MOVE_LIMIT)], POKEMON_PARTY_LIMIT* [round(1/POKEMON_PARTY_LIMIT)]
+
         input_matrix = self._make_input_vector(player, other_player)
         output = self._model.predict([input_matrix])[0]
 
@@ -95,7 +97,7 @@ class Predictor:
             attack = player.get_party().get_starting().get_move_bank().get_as_list()[highest_move_idx]
 
             # Create a turn function
-            def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
+            def take_turn(_____, _: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
                           ____: Callable[[int], None]):
                 do_move(attack)
 
@@ -105,12 +107,15 @@ class Predictor:
             highest_switch_idx = list(switch_probs).index(highest_switch_prob)
 
             # Create a turn function
-            def take_turn(_: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
+            def take_turn(_____, _: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
                           switch_pokemon: Callable[[int], None]):
                 switch_pokemon(highest_switch_idx)
 
             # Create the model
             model.take_turn = take_turn
+
+        # Shorten switch probabilities to the number of Pokemon in the player's party
+        switch_probs = switch_probs[:len(player.get_party().get_as_list())]
 
         return model, to_probs(move_probs), to_probs(switch_probs)
 
@@ -187,7 +192,7 @@ class Predictor:
         return np.array(mat).flatten()
 
     @staticmethod
-    def _make_actual_output_list(player: Player, node: MonteCarloNode) -> np.ndarray:
+    def _make_actual_output_list(player: Player, node: Any) -> np.ndarray:
         """
         Creates a list of actual output values from a player object and a single node.
         :param player: A Player that owns the action in the node.
@@ -201,7 +206,7 @@ class Predictor:
         # Calculate switch probabilities
         switch_probs = [EPSILON] * len(player_pokemon)
         for child in node.children:
-            if child.action_type == MonteCarloActionType.SWITCH:
+            if child.action_type == 0:  # SWITCH
                 pkmn_id = child.action_descriptor
                 switch_idx = 0
                 for i, pkmn in enumerate(player_pokemon):
@@ -223,7 +228,7 @@ class Predictor:
         # Add attack moves of every Pokemon
         pkmn_id_to_move_prob_map = {}
         for child in node.children:
-            if child.action_type == MonteCarloActionType.ATTACK:
+            if child.action_type == 0:  # ATTACK
                 pkmn_id = child.detokenize_child()
                 move_idx = child.action_descriptor
                 if pkmn_id not in pkmn_id_to_move_prob_map:

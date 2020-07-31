@@ -348,7 +348,7 @@ class Battle:
                     player.get_party().make_starting(idx)
                     return True
         elif player.is_ai():
-            while ai_pokemon_idx == 0 or ai_pokemon_idx is None:
+            while ai_pokemon_idx is None or ai_pokemon_idx == 0 or ai_pokemon_idx >= len(player.get_party().get_as_list()):
                 ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
             switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
             player.get_party().make_starting(ai_pokemon_idx)

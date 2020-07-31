@@ -15,9 +15,6 @@ class PorygonModel(ModelInterface):
     A sample model used to show how to create classes.
     """
 
-    def __init__(self):
-        pass
-
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
         with ThreadPoolExecutor() as executor:
             make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, verbose=False)
