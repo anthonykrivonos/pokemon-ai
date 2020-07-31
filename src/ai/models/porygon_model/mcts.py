@@ -12,6 +12,7 @@ from src.data import get_party
 
 from src.ai.models.porygon_model.predictor import Predictor
 
+from .predictor import Predictor
 
 class MonteCarloActionType(Enum):
     ATTACK = 0
@@ -161,13 +162,13 @@ class MonteCarloTree:
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
-def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_predictor=True, verbose=False):
+def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predictor: Predictor = None, verbose=False):
     """
     Creates a MonteCarloTree of actions for the given battle.
     :param player_real: The player to find actions for.
     :param other_player_real: The opposing player.
     :param num_plays: The number of Monte Carlo simulations to perform.
-    :param use_predictor: Use a neural network to weigh moves?
+    :param predictor: An optional neural network to weigh he training.
     :param verbose: Should the algorithm announce its current actions?
     :return: A MonteCarloTree.
     """
@@ -184,8 +185,8 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
     # Play num_plays amount of times
     for current_num_plays in range(num_plays):
         # Copy players and make both classes random
-        player = tree_player = player_real.copy()
-        other_player = tree_other_player = other_player_real.copy()
+        player = player_real.copy()
+        other_player = other_player_real.copy()
         player.set_model(RandomModel())
         other_player.set_model(RandomModel())
 
@@ -259,7 +260,6 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
 
             return child
 
-        ### FIND THE LEAF 
         def traverse(node: MonteCarloNode, node_player: Player, node_other_player: Player) -> MonteCarloNode:
             """
             If the node is not fully expanded, pick one of the unvisited children.
@@ -394,6 +394,9 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
 
         # On each run, calculate the outcomes via backpropagation
         backprop(leaf, outcome)
+
+        predictor.train_model(leaf, player, other_player)
+        predictor.predict_move(player, other_player)
 
     return tree
 

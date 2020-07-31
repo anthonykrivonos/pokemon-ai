@@ -5,7 +5,10 @@ from sklearn.neural_network import MLPRegressor
 
 from src.ai.models import RandomModel
 from src.classes import Player, Pokemon, Move, Item
-from src.utils import to_probs, POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
+from src.utils.config import POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
+from src.utils import to_probs, chance, chances
+
+from .mcts import MonteCarloNode, MonteCarloActionType
 
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
@@ -85,16 +88,18 @@ class Predictor:
             move_probs = output[start_idx:start_idx + POKEMON_MOVE_LIMIT]
         switch_probs = output[:POKEMON_PARTY_LIMIT]
 
-        # Get the max move and switch probabilities
-        highest_move_prob = max(move_probs)
-        highest_switch_prob = max(switch_probs)
-
         # Create the model
-        model = RandomModel
+        model = RandomModel()
 
-        if highest_move_prob >= highest_switch_prob:
-            highest_move_idx = list(move_probs).index(highest_move_prob)
-            attack = player.get_party().get_starting().get_move_bank().get_as_list()[highest_move_idx]
+        # Get probability of attacking and switching
+        all_moves = move_probs + switch_probs
+        all_moves_probs = to_probs(all_moves)
+        prob_attack = sum(all_moves_probs[:len(move_probs)])
+        move = chance(prob_attack, MonteCarloActionType.ATTACK, MonteCarloActionType.SWITCH)
+
+        # Randomly select a move given the move weights
+        if move == MonteCarloActionType.ATTACK:
+            attack = chances(move_probs, player.get_party().get_starting().get_move_bank().get_as_list())
 
             # Create a turn function
             def take_turn(_____, _: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
@@ -104,20 +109,18 @@ class Predictor:
             # Create the model
             model.take_turn = take_turn
         else:
-            highest_switch_idx = list(switch_probs).index(highest_switch_prob)
+            # Get a random, uniformly-weighted switch index
+            switch_idx = chances(switch_probs, [i for i, _ in enumerate(switch_probs)])
 
             # Create a turn function
             def take_turn(_____, _: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
                           switch_pokemon: Callable[[int], None]):
-                switch_pokemon(highest_switch_idx)
+                switch_pokemon(switch_idx)
 
             # Create the model
             model.take_turn = take_turn
 
-        # Shorten switch probabilities to the number of Pokemon in the player's party
-        switch_probs = switch_probs[:len(player.get_party().get_as_list())]
-
-        return model, to_probs(move_probs), to_probs(switch_probs)
+        return model, move_probs, switch_probs
 
     @staticmethod
     def _calculate_loss(game_output: np.ndarray, output: np.ndarray):
