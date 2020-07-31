@@ -1,4 +1,7 @@
+from typing import *
 from src.classes.pokemon.moves.status import Status
+
+import random
 
 from .pokemontype import PokemonType
 from .stats import Stats
@@ -37,6 +40,7 @@ class Pokemon:
         self._base_hp = hp
         self._hp = hp
         self._id = pokemon_id
+        self._revealed = False
 
     ##
     #   Getter Functions
@@ -78,6 +82,9 @@ class Pokemon:
     def get_id(self) -> int:
         return self._id
 
+    def is_revealed(self) -> bool:
+        return self._revealed
+
     ##
     #   Smart Functions
     ##
@@ -99,21 +106,26 @@ class Pokemon:
         """
         return self._hp == 0
 
-    def set_status(self, status: Status):
+    def set_status(self, status: Union[Status, None], status_turns: int = None):
         """
         Sets the status of the Pokemon.
         :param status: The status the Pokemon takes on.
+        :param status_turns: The number of turns to inflict the status.
         """
         self._status = status
-        self._status_turns = 7
+        if self._status is not None:
+            self._status_turns = random.randint(1, 7) if status_turns is None else status_turns
 
-    def set_other_status(self, other_status: Status):
+    def set_other_status(self, other_status: Status, other_status_turns: int = 0):
         """
         Sets the other status of the Pokemon.
         :param other_status: The other status the Pokemon takes on.
+        :param other_status_turns: The number of turns to inflict the status.
         """
         self._other_status = other_status
         self._other_status_turns = 0
+        if self._other_status is not None:
+            self._other_status_turns = other_status_turns
 
     def dec_status_turn(self):
         self._status_turns += 1
@@ -123,3 +135,9 @@ class Pokemon:
 
     def set_id(self, pokemon_id: int):
         self._id = pokemon_id
+
+    def reveal(self):
+        self._revealed = True
+
+    def hide(self):
+        self._revealed = False

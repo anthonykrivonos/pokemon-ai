@@ -27,6 +27,7 @@ def calculate_damage(move: Move, pokemon: Pokemon, on_pokemon: Pokemon) -> (int,
     effectiveness = is_effective(move.get_type(), on_pokemon.get_type())
     modifier = critical.value * random * effectiveness.value
     attack = pokemon.get_stats().get_special_attack() if move.is_special() else pokemon.get_stats().get_attack()
+    attack *= 1.5 if move.get_type() == pokemon.get_type() else 1  # STAB
     defense = on_pokemon.get_stats().get_special_defense() if move.is_special() else on_pokemon.get_stats().get_defense()
     damage = max(0, int(((((((2 * pokemon.get_level()) / 5) + 2) * move.get_base_damage() * (attack / defense)) / 50) + 2) * modifier))
     damage = damage if damage < on_pokemon.get_hp() else on_pokemon.get_hp()

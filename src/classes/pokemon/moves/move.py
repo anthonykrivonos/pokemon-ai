@@ -26,6 +26,7 @@ class Move:
         self._type = type
         self._is_special = is_special
         self._status_inflict = status_inflict
+        self._revealed = False
 
     def get_name(self) -> str:
         return self._name
@@ -48,6 +49,9 @@ class Move:
     def get_type(self) -> PokemonType:
         return self._type
 
+    def is_revealed(self) -> bool:
+        return self._revealed
+
     def is_special(self) -> bool:
         return self._is_special
 
@@ -62,3 +66,9 @@ class Move:
 
     def dec_pp(self):
         self._pp = max(0, self._pp - 1)
+
+    def reveal(self):
+        self._revealed = True
+
+    def hide(self):
+        self._revealed = False
