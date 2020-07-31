@@ -5,8 +5,8 @@ from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
 from src.classes import Status, status_names, Pokemon, Player, PokemonType, Move, Effectiveness, Item, Criticality
-from src.utils import print_battle_screen, clear, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, \
-    random_int, get_terminal_dimensions, is_effective
+from src.utils import print_battle_screen, clear_battle_screen, prompt_multi, okay, calculate_damage, chance,\
+    random_int, is_effective
 
 
 class Battle:
@@ -332,7 +332,7 @@ class Battle:
                     player.get_party().make_starting(idx)
                     return True
         elif player.is_ai():
-            while ai_pokemon_idx == 0 or ai_pokemon_idx is None:
+            while ai_pokemon_idx is None or ai_pokemon_idx == 0 or ai_pokemon_idx >= len(player.get_party().get_as_list()):
                 ai_pokemon_idx = player.get_model().force_switch_pokemon(player.get_party())
             switched_pokemon = player.get_party().get_at_index(ai_pokemon_idx)
             player.get_party().make_starting(ai_pokemon_idx)
