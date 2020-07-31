@@ -8,7 +8,7 @@ from src.classes import Player, Pokemon, Move, Item
 from src.utils.config import POKEMON_MOVE_LIMIT, POKEMON_PARTY_LIMIT
 from src.utils import to_probs, chance, chances
 
-from .mcts import MonteCarloNode, MonteCarloActionType
+from .models import MonteCarloActionType
 
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
@@ -60,15 +60,15 @@ class Predictor:
         self._is_trained = True
         self._model.fit([self._make_input_vector(player, other_player)], [self._make_actual_output_list(player, node)])
 
-    def predict_move(self, player: Player, other_player: Player) -> Tuple[RandomModel, List[float], List[float]]:
+    def predict_move(self, player: Player, other_player: Player) -> Tuple[RandomModel, MonteCarloActionType, int, List[float], List[float]]:
         """
         Predict the move the player should make.
         :param player: The player.
         :param other_player: The opposing player.
-        :return: A tuple containing the <move model, move probabilities, switch-out probabilities>.
+        :return: A tuple containing the <move model, move type, move index, move probabilities, switch-out probabilities>.
         """
         if not self._is_trained:
-            return RandomModel(), POKEMON_MOVE_LIMIT*[round(1/POKEMON_MOVE_LIMIT)], POKEMON_PARTY_LIMIT* [round(1/POKEMON_PARTY_LIMIT)]
+            return RandomModel(), MonteCarloActionType.ATTACK, 0, POKEMON_MOVE_LIMIT*[round(1/POKEMON_MOVE_LIMIT)], POKEMON_PARTY_LIMIT* [round(1/POKEMON_PARTY_LIMIT)]
 
         input_matrix = self._make_input_vector(player, other_player)
         output = self._model.predict([input_matrix])[0]
@@ -95,11 +95,14 @@ class Predictor:
         all_moves = move_probs + switch_probs
         all_moves_probs = to_probs(all_moves)
         prob_attack = sum(all_moves_probs[:len(move_probs)])
-        move = chance(prob_attack, MonteCarloActionType.ATTACK, MonteCarloActionType.SWITCH)
+        move_type = chance(prob_attack, MonteCarloActionType.ATTACK, MonteCarloActionType.SWITCH)
+        move_idx = 0
 
         # Randomly select a move given the move weights
-        if move == MonteCarloActionType.ATTACK:
-            attack = chances(move_probs, player.get_party().get_starting().get_move_bank().get_as_list())
+        if move_type == MonteCarloActionType.ATTACK:
+            # Get a random move
+            move_idx = chances(move_probs, list(range(len(player.get_party().get_starting().get_move_bank().get_as_list()))))
+            attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
 
             # Create a turn function
             def take_turn(_____, _: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
@@ -109,18 +112,18 @@ class Predictor:
             # Create the model
             model.take_turn = take_turn
         else:
-            # Get a random, uniformly-weighted switch index
-            switch_idx = chances(switch_probs, [i for i, _ in enumerate(switch_probs)])
+            # Get a random switch index
+            move_idx = chances(switch_probs, [i for i, _ in enumerate(switch_probs)])
 
             # Create a turn function
             def take_turn(_____, _: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
                           switch_pokemon: Callable[[int], None]):
-                switch_pokemon(switch_idx)
+                switch_pokemon(move_idx)
 
             # Create the model
             model.take_turn = take_turn
 
-        return model, move_probs, switch_probs
+        return model, move_type, move_idx, move_probs, switch_probs
 
     @staticmethod
     def _calculate_loss(game_output: np.ndarray, output: np.ndarray):
