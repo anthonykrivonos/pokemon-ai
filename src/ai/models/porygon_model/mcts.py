@@ -1,5 +1,4 @@
 from typing import *
-from enum import Enum
 from copy import deepcopy
 from random import seed, random, shuffle
 from pptree import print_tree
@@ -10,12 +9,8 @@ from src.utils import calculations
 from src.ai.models.random_model import RandomModel
 from src.data import get_party
 
-from src.ai.models.porygon_model.predictor import Predictor
-
-
-class MonteCarloActionType(Enum):
-    ATTACK = 0
-    SWITCH = 1
+from .models import MonteCarloActionType
+from .predictor import Predictor
 
 
 class MonteCarloNode:
@@ -161,19 +156,17 @@ class MonteCarloTree:
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
-def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_predictor=True, verbose=False):
+def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predictor: Predictor = None, learning_turns: int = 10, verbose=False):
     """
     Creates a MonteCarloTree of actions for the given battle.
     :param player_real: The player to find actions for.
     :param other_player_real: The opposing player.
     :param num_plays: The number of Monte Carlo simulations to perform.
-    :param use_predictor: Use a neural network to weigh moves?
+    :param predictor: An optional neural network to weigh he training.
+    :param learning_turns: Number of turns the model will learn before making decisions.
     :param verbose: Should the algorithm announce its current actions?
     :return: A MonteCarloTree.
     """
-
-    # Create neural network
-    predictor = Predictor(verbose=verbose)
 
     # Create tree
     tree = MonteCarloTree()
@@ -181,11 +174,13 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
     root.depth = 1
     root.description = 'Battle Start'
 
+    current_learning_turn = 0
+
     # Play num_plays amount of times
     for current_num_plays in range(num_plays):
         # Copy players and make both classes random
-        player = tree_player = player_real.copy()
-        other_player = tree_other_player = other_player_real.copy()
+        player = player_real.copy()
+        other_player = other_player_real.copy()
         player.set_model(RandomModel())
         other_player.set_model(RandomModel())
 
@@ -259,7 +254,6 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
 
             return child
 
-        ### FIND THE LEAF 
         def traverse(node: MonteCarloNode, node_player: Player, node_other_player: Player) -> MonteCarloNode:
             """
             If the node is not fully expanded, pick one of the unvisited children.
@@ -337,52 +331,54 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, use_p
                 winner = battle.play_turn()
 
                 # Get turn outcome
-                if winner is not None:
+                if winner is not None and predictor is not None:
                     # Train the predictor
                     predictor.train_model(root, player, other_player)
+                    current_learning_turn += 1
                     break
 
             # If len(move_queue) == 1 and the battle has not ended yet, add a random move for the opponent
             # This is equivalent to manually simulating an opponent move
             if len(move_queue) == 1:
-                opp_pokemon = other_player.get_party().get_starting()
+                if current_learning_turn <= learning_turns or predictor is None:
+                    opp_pokemon = other_player.get_party().get_starting()
 
-                num_moves = sum([int(move.is_available()) for move in opp_pokemon.get_move_bank().get_as_list()])
-                num_switches = sum([int(not pkmn.is_fainted()) for pkmn in
-                                    other_player.get_party().get_as_list()]) - 1  # Account for pokemon on field
+                    num_moves = sum([int(move.is_available()) for move in opp_pokemon.get_move_bank().get_as_list()])
+                    num_switches = sum([int(not pkmn.is_fainted()) for pkmn in
+                                        other_player.get_party().get_as_list()]) - 1  # Account for pokemon on field
 
-                seed()
-                move_threshold = num_moves / (num_moves + num_switches)
-                perform_attack = random() < move_threshold
+                    seed()
+                    move_threshold = num_moves / (num_moves + num_switches)
+                    perform_attack = random() < move_threshold
 
-                if perform_attack:
-                    # Get a random attack
-                    attacks = list(filter(lambda m: m[0].is_available(),
-                                          [(move, i) for i, move in
-                                           enumerate(deepcopy(opp_pokemon.get_move_bank().get_as_list()))]))
-                    shuffle(attacks)
-                    _, attack_idx = attacks[0]
+                    if perform_attack:
+                        # Get a random attack
+                        attacks = list(filter(lambda m: m[0].is_available(),
+                                              [(move, i) for i, move in
+                                               enumerate(deepcopy(opp_pokemon.get_move_bank().get_as_list()))]))
+                        shuffle(attacks)
+                        _, attack_idx = attacks[0]
 
-                    # Add attack to move_queue
-                    move_queue.append(create_node(other_player, MonteCarloActionType.ATTACK, attack_idx))
+                        # Add attack to move_queue
+                        move_queue.append(create_node(other_player, MonteCarloActionType.ATTACK, attack_idx))
+                    else:
+                        # Get a random pokemon
+                        party = list(filter(lambda p: not p[0].is_fainted(),
+                                            [(pkmn, i) for i, pkmn in
+                                             enumerate(deepcopy(other_player.get_party().get_as_list()))]))[1:]
+                        shuffle(party)
+                        _, switch_idx = party[0]
+
+                        # Add switch to move_queue
+                        move_queue.append(create_node(other_player, MonteCarloActionType.SWITCH, switch_idx))
                 else:
-                    # Get a random pokemon
-                    party = list(filter(lambda p: not p[0].is_fainted(),
-                                        [(pkmn, i) for i, pkmn in
-                                         enumerate(deepcopy(other_player.get_party().get_as_list()))]))[1:]
-                    shuffle(party)
-                    _, switch_idx = party[0]
+                    # Predict the output
+                    model, move_type, move_idx, move_probs, switch_probs = predictor.predict_move(player, other_player)
+                    move_queue.append(create_node(other_player, move_type, move_idx))
 
-                    # Add switch to move_queue
-                    move_queue.append(create_node(other_player, MonteCarloActionType.SWITCH, switch_idx))
-
-                # Predict the output
-                model, move_probs, switch_probs = predictor.predict_move(player, other_player)
-
-                print('%s against %s:' % (player.get_party().get_starting().get_name(), other_player.get_party().get_starting().get_name()))
-                print(["%s (prob. %.4f)" % (move.get_name(), prob) for move, prob in zip(player.get_party().get_starting().get_move_bank().get_as_list(), move_probs)])
-                print(["Switch to %s (prob. %.4f)" % (pkmn.get_name(), prob) for pkmn, prob in zip(player.get_party().get_sorted_list(), switch_probs)])
-
+                    print('%s against %s:' % (player.get_party().get_starting().get_name(), other_player.get_party().get_starting().get_name()))
+                    print(["%s (prob. %.4f)" % (move.get_name(), prob) for move, prob in zip(player.get_party().get_starting().get_move_bank().get_as_list(), move_probs)])
+                    print(["Switch to %s (prob. %.4f)" % (pkmn.get_name(), prob) for pkmn, prob in zip(player.get_party().get_sorted_list(), switch_probs)])
 
         # Simulate the rest of the battle with random moves
         player.set_model(RandomModel())

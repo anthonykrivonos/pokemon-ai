@@ -1,3 +1,5 @@
+from typing import *
+
 import sys
 import random
 from os.path import join, dirname
@@ -16,6 +18,23 @@ def chance(percentage: float, success: any = None, failure: any = None):
     if percentage >= random.random():
         return (success() if callable(success) else success) if success is not None else None
     return (failure() if callable(failure) else failure) if failure is not None else None
+
+
+def chances(probabilities: List[float], results: List[any]):
+    """
+    Uniformly selects the result based on the list of probability percentages.
+    :param probabilities: The percentage associated with each result.
+    :param results: The list of results, lining up with percentages.
+    :return: success or failure if they are not callable, or success() or failure() otherwise.
+    """
+    assert len(probabilities) == len(results)
+    thresh = random.random()
+    for i, percentage in enumerate(probabilities):
+        lower = sum(probabilities[:i]) if i > 0 else 0
+        upper = lower + percentage
+        if lower <= thresh < upper:
+            return results[i]
+    return results[-1]
 
 
 def random_int(start: int, end: int):

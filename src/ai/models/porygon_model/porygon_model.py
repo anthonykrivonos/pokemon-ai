@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.classes import Player, Party, Move, Item
 from .mcts import make_tree
 from ..random_model import RandomModel
+from .predictor import Predictor
 
 from src.ai import ModelInterface
 
@@ -14,10 +15,14 @@ class PorygonModel(ModelInterface):
     """
     A sample model used to show how to create classes.
     """
+    def __init__(self):
+        super()
+        self._predictor = Predictor()
 
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
         with ThreadPoolExecutor() as executor:
-            make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, verbose=False)
+            self._predictor.predict_move(player, other_player)
+            make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, predictor=self._predictor, verbose=False)
             print("%s is formulating a move..." % player.get_name())
             tree = make_tree_thread.result()
             model = tree.get_next_action()
