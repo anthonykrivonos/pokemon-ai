@@ -319,7 +319,7 @@ class Battle:
             while True:
                 # Write the options out
                 options = [p.get_name() + " (" + str(p.get_hp()) + "/" + str(p.get_base_hp()) + " HP)" for p in
-                           player.get_party().get_as_list()[1:]]
+                           player.get_party().get_as_list()]
                 if none_option:
                     options.insert(0, 'None (Go back)')
                 item = prompt_multi('Which Pokémon would you like to switch in?', *options)[0]
