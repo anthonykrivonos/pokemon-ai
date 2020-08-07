@@ -12,14 +12,15 @@ from src.data import get_party
 from .models import MonteCarloActionType
 from .predictor import Predictor
 
-
 class MonteCarloNode:
 
-    def __init__(self, player_id: int = 0, action_type: MonteCarloActionType = -1,
+    def __init__(self, player: Player, other_player: Player, player_id: int = 0, action_type: MonteCarloActionType = -1,
                  action_descriptor: Union[int, str] = 1, model: RandomModel = None, outcome=0, description="", visits=0, depth=0):
         """
         Initializes a MonteCarloNode.
         :param player_id: The ID of the player performing this action.
+        :param player: Node player.
+        :param other_player: Node other player.
         :param action_type: The type of action taken by this node.
         :param action_descriptor: The index of the action taken by this node.
         :param model: The model to use.
@@ -27,6 +28,8 @@ class MonteCarloNode:
         :param description: The description of the action at the node.
         """
         self.player_id = player_id
+        self.player = player
+        self.other_player = other_player
         self.action_type = action_type
         self.action_descriptor = action_descriptor
         self.model = model
@@ -108,16 +111,16 @@ class MonteCarloNode:
         Converts the node to a string.
         :return: The string version of the node.
         """
-        return str((self.description, self.outcome, self.visits))
+        return str((self.description, self.outcome, self.visits, self.player.get_party().get_starting().get_name(), self.player.get_party().get_starting().get_hp(), self.other_player.get_party().get_starting().get_name(), self.other_player.get_party().get_starting().get_hp()))
 
 
 class MonteCarloTree:
 
-    def __init__(self, root=None):
+    def __init__(self, player, other_player):
         """
         Initializes a MonteCarloTree.
         """
-        self.root = root if root is not None else MonteCarloNode()
+        self.root = MonteCarloNode(player, other_player)
 
     def print(self):
         """
@@ -169,8 +172,10 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
     """
 
     # Create tree
-    tree = MonteCarloTree()
+    tree = MonteCarloTree(player_real.copy(), other_player_real.copy())
     root = tree.root
+    root.player.set_model(RandomModel())
+    root.other_player.set_model(RandomModel())
     root.depth = 1
     root.description = 'Battle Start'
 
@@ -179,10 +184,7 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
     # Play num_plays amount of times
     for current_num_plays in range(num_plays):
         # Copy players and make both classes random
-        player = player_real.copy()
-        other_player = other_player_real.copy()
-        player.set_model(RandomModel())
-        other_player.set_model(RandomModel())
+
 
         def backprop(node: MonteCarloNode, outcome: float) -> None:
             """
@@ -199,7 +201,7 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
             if node.parent is not None:
                 backprop(node.parent, outcome)
 
-        def create_node(node_player: Player, action_type: MonteCarloActionType, index: int) -> MonteCarloNode:
+        def create_node(node_player: Player, node_other_player: Player, action_type: MonteCarloActionType, index: int) -> MonteCarloNode:
             """
             Creates an attack or switch node.
             :param node_player: The current player object for the node.
@@ -233,17 +235,15 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
             model.take_turn = take_turn
 
             # Return the move node
-            return MonteCarloNode(node_player.get_id(), action_type, action_descriptor, model, 0, description)
+            return MonteCarloNode(node_player.copy(), node_other_player.copy(), node_player.get_id(), action_type, action_descriptor, model, 0, description)
 
-        def insert_node(node: MonteCarloNode, parent: MonteCarloNode, node_player: Player, node_other_player: Player) -> MonteCarloNode:
+        def insert_node(node: MonteCarloNode, parent: MonteCarloNode) -> MonteCarloNode:
             """
             Adds an attack or switch move node to a tree.
             :param node: The current node.
-            :param parent: The parent node.
-            :param node_player: The player object at the current node.
-            :param node_other_player: The other player object at the current node.
+            :param parent: The parent node..
             """
-            pokemon = node_player.get_party().get_starting()
+            pokemon = node.player.get_party().get_starting()
             child_exists = parent.has_child(pokemon, node.action_type, node.action_descriptor)
 
             if not child_exists:
@@ -252,32 +252,52 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
             else:
                 child = parent.get_child(pokemon, node.action_type, node.action_descriptor)
 
+            if node.depth % 2 == 1:
+                # If on an odd depth, simulate a turn and update the node's state (players).
+                node.player.set_model(node.model)
+                node.other_player.set_model(parent.model)
+
+                battle = Battle(node.player, node.other_player, 1 if verbose else 0)
+                winner = battle.play_turn()
+
+                # Get turn outcome
+                if winner is not None and predictor is not None:
+                    # Train the predictor
+                    predictor.train_model(root, player, other_player)
+                    current_learning_turn += 1
+                    print("END")
+
             return child
 
-        def traverse(node: MonteCarloNode, node_player: Player, node_other_player: Player) -> MonteCarloNode:
+        def traverse(node: MonteCarloNode) -> MonteCarloNode:
             """
             If the node is not fully expanded, pick one of the unvisited children.
             Else, pick the child node with greatest UCT value. If this child node is also
             fully expanded, repeat process. 
             """
 
-            def fully_expanded(node: MonteCarloNode, player: Player, other_player: Player):
-                pokemon = player.get_party().get_starting()
+            def fully_expanded(node: MonteCarloNode):
+                if node.depth == 1:
+                    c_player = node.player.copy()
+                    c_other_player = node.other_player.copy()
+                else:
+                    c_player = node.other_player.copy()
+                    c_other_player = node.player.copy()
+
+                pokemon = c_player.get_party().get_starting()
 
                 # Creates all children for node if they do not already exist, and checks visit (0 is unvisited)
                 attacks = list(filter(lambda m: m[0].is_available(),
                                       [(move, i) for i, move in enumerate(pokemon.get_move_bank().get_as_list())]))
                 for _, attack_idx in attacks:
-                    node_player_new = player.copy()
-                    child = create_node(node_player_new, MonteCarloActionType.ATTACK, attack_idx)
-                    insert_node(child, node, node_player_new, other_player.copy())
+                    child = create_node(c_player, c_other_player, MonteCarloActionType.ATTACK, attack_idx)
+                    insert_node(child, node)
 
                 switches = list(filter(lambda p: not p[0].is_fainted(),
-                                       [(pkmn, i) for i, pkmn in enumerate(player.get_party().get_as_list())]))[1:]
+                                       [(pkmn, i) for i, pkmn in enumerate(node.player.get_party().get_as_list())]))[1:]
                 for _, switch_idx in switches:
-                    node_player_new = player.copy()
-                    child = create_node(node_player_new, MonteCarloActionType.SWITCH, switch_idx)
-                    insert_node(child, node, node_player_new, other_player.copy())
+                    child = create_node(c_player, c_other_player, MonteCarloActionType.SWITCH, switch_idx)
+                    insert_node(child, node)
 
                 return all([child.visits > 0 for child in node.children])
 
@@ -295,96 +315,44 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
                 return None
 
             # Adds the opponents moves as child nodes to player's moves (MCT will calculate best move for both sides)
-            while fully_expanded(node, node_other_player if node.depth % 2 == 0 else node_player, node_player if node.depth % 2 == 0 else node_other_player):
+            while fully_expanded(node):
                 node = best_uct_node(node)
 
             return pick_unvisited(node) or node
 
+        # -------------------------
+        # START OF ACTUAL ALGORITHM
+        # -------------------------
         # Traverse and find the leaf to recur from
-        leaf = traverse(root, player, other_player)
+        leaf = traverse(root)
 
-        # Create move_queue to perform moves as traversed path down tree
-        move_queue = []
-        c_node = leaf
+        # If the leaf has an even depth, the opponent has yet to chose a move. Thus, set the opp's model to random and
+        # take a turn. Then continue to randomly simulate the rest of the battle.
+        if leaf.depth % 2 == 0:
+            # Even depth also indicates the player is player 1.
+            player = leaf.player.copy()
+            other_player = leaf.other_player.copy()
 
-        while c_node.parent is not None:
-            move_queue.insert(0, c_node)
-            c_node = c_node.parent
+            # Adding a move for opponent and taking a turn.
+            player.set_model(leaf.model)
+            other_player.set_model(RandomModel())
 
-        # Battle using the traversed path
-        while len(move_queue) > 0:
-            # Play the turn(s) out (select the moves for both players)
-            if len(move_queue) > 1:
-                player_move = move_queue[0]
-                other_player_move = move_queue[1]
+            battle = Battle(player, other_player, 1 if verbose else 0)
+            winner = battle.play_turn()
 
-                assert player_move.player_id == player.get_id()
-                assert other_player_move.player_id == other_player.get_id()
+            if winner is not None:
+                player.set_model(RandomModel())
+                battle.play()
+        else:
+            # Odd depth indicates player is player 2.
+            player = leaf.other_player.copy()
+            other_player = leaf.player.copy()
 
-                del move_queue[0]
-                del move_queue[0]
+            player.set_model(RandomModel())
+            other_player.set_model(RandomModel())
 
-                player.set_model(player_move.model)
-                other_player.set_model(other_player_move.model)
-
-                battle = Battle(player, other_player, 1 if verbose else 0)
-                winner = battle.play_turn()
-
-                # Get turn outcome
-                if winner is not None and predictor is not None:
-                    # Train the predictor
-                    predictor.train_model(root, player, other_player)
-                    current_learning_turn += 1
-                    break
-
-            # If len(move_queue) == 1 and the battle has not ended yet, add a random move for the opponent
-            # This is equivalent to manually simulating an opponent move
-            if len(move_queue) == 1:
-                if current_learning_turn <= learning_turns or predictor is None:
-                    opp_pokemon = other_player.get_party().get_starting()
-
-                    num_moves = sum([int(move.is_available()) for move in opp_pokemon.get_move_bank().get_as_list()])
-                    num_switches = sum([int(not pkmn.is_fainted()) for pkmn in
-                                        other_player.get_party().get_as_list()]) - 1  # Account for pokemon on field
-
-                    seed()
-                    move_threshold = num_moves / (num_moves + num_switches)
-                    perform_attack = random() < move_threshold
-
-                    if perform_attack:
-                        # Get a random attack
-                        attacks = list(filter(lambda m: m[0].is_available(),
-                                              [(move, i) for i, move in
-                                               enumerate(deepcopy(opp_pokemon.get_move_bank().get_as_list()))]))
-                        shuffle(attacks)
-                        _, attack_idx = attacks[0]
-
-                        # Add attack to move_queue
-                        move_queue.append(create_node(other_player, MonteCarloActionType.ATTACK, attack_idx))
-                    else:
-                        # Get a random pokemon
-                        party = list(filter(lambda p: not p[0].is_fainted(),
-                                            [(pkmn, i) for i, pkmn in
-                                             enumerate(deepcopy(other_player.get_party().get_as_list()))]))[1:]
-                        shuffle(party)
-                        _, switch_idx = party[0]
-
-                        # Add switch to move_queue
-                        move_queue.append(create_node(other_player, MonteCarloActionType.SWITCH, switch_idx))
-                else:
-                    # Predict the output
-                    model, move_type, move_idx, move_probs, switch_probs = predictor.predict_move(player, other_player)
-                    move_queue.append(create_node(other_player, move_type, move_idx))
-
-                    print('%s against %s:' % (player.get_party().get_starting().get_name(), other_player.get_party().get_starting().get_name()))
-                    print(["%s (prob. %.4f)" % (move.get_name(), prob) for move, prob in zip(player.get_party().get_starting().get_move_bank().get_as_list(), move_probs)])
-                    print(["Switch to %s (prob. %.4f)" % (pkmn.get_name(), prob) for pkmn, prob in zip(player.get_party().get_sorted_list(), switch_probs)])
-
-        # Simulate the rest of the battle with random moves
-        player.set_model(RandomModel())
-        other_player.set_model(RandomModel())
-
-        battle.play()
+            battle = Battle(player, other_player, 1 if verbose else 0)
+            battle.play()
 
         outcome = calculations.outcome_func_v1(player, other_player)
 
@@ -394,17 +362,3 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
     return tree
 
 
-if __name__ == "__main__":
-    party1 = get_party("charizard", "geodude")
-    party2 = get_party("blastoise", "squirtle")
-    print("%s vs. %s" % (', '.join([pkmn._name for pkmn in party1._pokemon_list]), ', '.join([pkmn._name for pkmn in party2._pokemon_list])))
-
-    player1 = Player("Player 1", party1, None, RandomModel(), player_id=1)
-    player2 = Player("Player 2", party2, None, RandomModel(), player_id=2)
-
-    tree = make_tree(player1, player2, 1000)
-    tree.print()
-
-    outcome_probs = tree.get_action_probabilities()
-    for prob in outcome_probs:
-        print("Outcome: %1.4f, Prob: %1.4f, Visits: %d, Move: %s" % prob)
