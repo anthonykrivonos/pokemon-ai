@@ -366,17 +366,7 @@ class Battle:
     def _turn_check_pokemon(self, player: Player):
         other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
         clear_battle_screen()
-        for i, pokemon in enumerate(other_player.get_party().get_as_list()):
-            if pokemon.is_revealed():
-                print("%d. %s (%s) %d/%d HP" % (
-                    i + 1, pokemon.get_name(), pokemon.get_type().name, pokemon.get_hp(), pokemon.get_base_hp())
-                )
-            else:
-                print("%d. ??? (???) – ?/?" % (i + 1))
-            move_str = "  "
-            for move in pokemon.get_move_bank().get_as_list():
-                move_str += "· %s  " % (move.get_name() if (pokemon.is_revealed() and move.is_revealed()) else "???")
-            print(move_str)
+        print(str(other_player.get_party()))
 
     def _turn_perform_attacks(self, player_a: Player, player_b: Player):
         """
