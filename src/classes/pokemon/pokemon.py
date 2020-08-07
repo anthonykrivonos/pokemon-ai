@@ -40,7 +40,7 @@ class Pokemon:
         self._base_hp = hp
         self._hp = hp
         self._id = pokemon_id
-        self._revealed = False
+        self._revealed = True
 
     ##
     #   Getter Functions
@@ -141,3 +141,14 @@ class Pokemon:
 
     def hide(self):
         self._revealed = False
+
+    def __str__(self):
+        string = ""
+        if self.is_revealed():
+            string += ("%s (%s) %d/%d HP\n" % (self.get_name(), self.get_type().name, self.get_hp(), self.get_base_hp()))
+        else:
+            string += "??? (???) – ?/?\n"
+        string += "    "
+        for move in self.get_move_bank().get_as_list():
+            string += "· %s  " % (str(move) if (self.is_revealed() and move.is_revealed()) else "???")
+        return string

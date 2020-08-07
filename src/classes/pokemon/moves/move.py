@@ -26,7 +26,7 @@ class Move:
         self._type = type
         self._is_special = is_special
         self._status_inflict = status_inflict
-        self._revealed = False
+        self._revealed = True
 
     def get_name(self) -> str:
         return self._name
@@ -72,3 +72,6 @@ class Move:
 
     def hide(self):
         self._revealed = False
+
+    def __str__(self):
+        return "%s %d/%d PP" % (self.get_name(), self.get_pp(), self.get_base_pp())

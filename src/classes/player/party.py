@@ -68,3 +68,9 @@ class Party:
         :return: The starting Pokemon in the party.
         """
         return self.get_at_index(0)
+
+    def __str__(self):
+        string = ""
+        for i, pokemon in enumerate(self.get_as_list()):
+            string += "%d. %s%s" % (i + 1, str(pokemon), "\n" if i != len(self._pokemon_list) - 1 else "")
+        return string
