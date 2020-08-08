@@ -19,7 +19,7 @@ class RandomModel(ModelInterface):
         num_available_moves = sum([int(move.is_available()) for move in pokemon.get_move_bank().get_as_list()])
         num_available_pokemon = sum([int(not pokemon.is_fainted()) for pokemon in player.get_party().get_as_list()]) - 1
 
-        if randint(1, num_available_moves + num_available_pokemon) <= num_available_moves:
+        if num_available_moves + num_available_pokemon > 0 and randint(1, num_available_moves + num_available_pokemon) <= num_available_moves:
             # Perform a move
             move_list = deepcopy(pokemon.get_move_bank().get_as_list())
             shuffle(move_list)

@@ -7,6 +7,7 @@ from src.classes import Player, Move, Item, Pokemon
 from src.battle import Battle
 from src.utils import calculations
 from src.ai.models.random_model import RandomModel
+from src.ai.models.damage_model import DamageModel
 from src.data import get_party
 
 from .models import MonteCarloActionType
@@ -159,7 +160,7 @@ class MonteCarloTree:
         return sorted(outcome_probs, key=lambda o: o[1])
 
 
-def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predictor: Predictor = None, learning_turns: int = 10, verbose=False):
+def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predictor: Predictor = None, learning_turns: int = 10, use_damage_model=False, verbose=False):
     """
     Creates a MonteCarloTree of actions for the given battle.
     :param player_real: The player to find actions for.
@@ -167,6 +168,7 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
     :param num_plays: The number of Monte Carlo simulations to perform.
     :param predictor: An optional neural network to weigh he training.
     :param learning_turns: Number of turns the model will learn before making decisions.
+    :param use_damage_model: Use the DamageModel?
     :param verbose: Should the algorithm announce its current actions?
     :return: A MonteCarloTree.
     """
@@ -175,17 +177,15 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
     tree = MonteCarloTree(player_real.copy(), other_player_real.copy())
     root = tree.root
     root.player.set_model(RandomModel())
-    root.other_player.set_model(RandomModel())
+    root.other_player.set_model(RandomModel() if not use_damage_model else DamageModel())
     root.depth = 1
     root.description = 'Battle Start'
 
-    current_learning_turn = 0
+    # Use workaround to pass this to children
+    current_learning_turn = [0]
 
     # Play num_plays amount of times
     for current_num_plays in range(num_plays):
-        # Copy players and make both classes random
-
-
         def backprop(node: MonteCarloNode, outcome: float) -> None:
             """
             Backpropogates and updates all nodes from the top node using the sums of the leaf nodes.
@@ -264,8 +264,7 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
                 if winner is not None and predictor is not None:
                     # Train the predictor
                     predictor.train_model(root, player, other_player)
-                    current_learning_turn += 1
-                    print("END")
+                    current_learning_turn[0] += 1
 
             return child
 
@@ -335,21 +334,30 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
 
             # Adding a move for opponent and taking a turn.
             player.set_model(leaf.model)
-            other_player.set_model(RandomModel())
+            other_player.set_model(RandomModel() if not use_damage_model else DamageModel())
 
             battle = Battle(player, other_player, 1 if verbose else 0)
             winner = battle.play_turn()
 
-            if winner is not None:
-                player.set_model(RandomModel())
+            if winner is None:
+                if predictor is not None and current_learning_turn[0] < learning_turns:
+                    player.set_model(RandomModel())
+                else:
+                    model, _, _, _, _ = predictor.predict_move(player, other_player)
+                    player.set_model(model)
                 battle.play()
         else:
             # Odd depth indicates player is player 2.
             player = leaf.other_player.copy()
             other_player = leaf.player.copy()
 
-            player.set_model(RandomModel())
-            other_player.set_model(RandomModel())
+            if predictor is not None and current_learning_turn[0] < learning_turns:
+                player.set_model(RandomModel())
+            else:
+                model, _, _, _, _ = predictor.predict_move(player, other_player)
+                player.set_model(model)
+
+            other_player.set_model(RandomModel() if not use_damage_model else DamageModel())
 
             battle = Battle(player, other_player, 1 if verbose else 0)
             battle.play()
@@ -360,5 +368,3 @@ def make_tree(player_real: Player, other_player_real: Player, num_plays=1, predi
         backprop(leaf, outcome)
 
     return tree
-
-
