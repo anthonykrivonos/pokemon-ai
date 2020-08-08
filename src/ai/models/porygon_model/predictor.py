@@ -92,7 +92,7 @@ class Predictor:
         model = RandomModel()
 
         # Get probability of attacking and switching
-        all_moves = move_probs + switch_probs
+        all_moves = list(np.concatenate((move_probs, switch_probs), axis=0))
         all_moves_probs = to_probs(all_moves)
         prob_attack = sum(all_moves_probs[:len(move_probs)])
         move_type = chance(prob_attack, MonteCarloActionType.ATTACK, MonteCarloActionType.SWITCH)
@@ -105,7 +105,7 @@ class Predictor:
             attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
 
             # Create a turn function
-            def take_turn(_____, _: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
+            def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],
                           ____: Callable[[int], None]):
                 do_move(attack)
 
@@ -116,7 +116,7 @@ class Predictor:
             move_idx = chances(switch_probs, [i for i, _ in enumerate(switch_probs)])
 
             # Create a turn function
-            def take_turn(_____, _: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
+            def take_turn(_: Player, __: Player, ___: Callable[[Move], None], ____: Callable[[Item], None],
                           switch_pokemon: Callable[[int], None]):
                 switch_pokemon(move_idx)
 

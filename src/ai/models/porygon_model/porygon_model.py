@@ -15,18 +15,22 @@ class PorygonModel(ModelInterface):
     """
     A sample model used to show how to create classes.
     """
-    def __init__(self):
+    def __init__(self, use_damage_model=False, verbose=False):
         super()
-        self._predictor = Predictor()
+        self._verbose = verbose
+        self._use_damage_model = use_damage_model
+        self._predictor = Predictor(verbose=verbose)
 
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
         with ThreadPoolExecutor() as executor:
             self._predictor.predict_move(player, other_player)
-            make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, predictor=self._predictor, verbose=False)
-            print("%s is formulating a move..." % player.get_name())
+            make_tree_thread = executor.submit(make_tree, player, other_player, NUM_SIMULATIONS, predictor=self._predictor, use_damage_model=self._use_damage_model, verbose=False)
+            if self._verbose:
+                print("%s is formulating a move..." % player.get_name())
             tree = make_tree_thread.result()
             model = tree.get_next_action()
-            print("Done")
+            if self._verbose:
+                print("Done")
             model.take_turn(player, other_player, attack, use_item, switch_pokemon_at_idx)
 
     def force_switch_pokemon(self, party: Party):
