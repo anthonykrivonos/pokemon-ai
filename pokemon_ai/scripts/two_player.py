@@ -3,7 +3,6 @@ from os.path import join, dirname
 sys.path.append(join(dirname(__file__), '../..'))
 
 from pokemon_ai.battle import Battle
-
 from pokemon_ai.classes import Bag, Party, Player, Move, MoveBank, Pokemon, Stats, PokemonType
 
 

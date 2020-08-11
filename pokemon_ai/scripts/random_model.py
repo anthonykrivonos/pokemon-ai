@@ -6,7 +6,7 @@ from pokemon_ai.battle import Battle
 
 from pokemon_ai.data import get_random_party
 from pokemon_ai.classes import Bag, Player
-from pokemon_ai.ai import RandomModel
+from pokemon_ai.ai.models import RandomModel
 
 
 party1 = get_random_party()

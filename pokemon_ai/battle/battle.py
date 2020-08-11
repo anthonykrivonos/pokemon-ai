@@ -1,5 +1,5 @@
-from pokenet.classes import Status, status_names, Pokemon, Player, PokemonType, Move, Effectiveness, Item, Criticality
-from pokenet.utils import print_battle_screen, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, \
+from pokemon_ai.classes import Status, status_names, Pokemon, Player, PokemonType, Move, Effectiveness, Item, Criticality
+from pokemon_ai.utils import print_battle_screen, clear_battle_screen, prompt_multi, okay, calculate_damage, chance, \
     is_effective
 
 
@@ -155,7 +155,8 @@ class Battle:
                 elif move == 2:
                     turn_complete = self._turn_switch_pokemon(player)
                 elif move == 3:
-                    turn_complete = self._turn_check_pokemon(player)
+                    turn_complete = False
+                    self._turn_check_pokemon(player)
                 else:
                     clear_battle_screen()
                     self._alert(player.get_name() + ' forfeits...', player)

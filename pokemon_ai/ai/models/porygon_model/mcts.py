@@ -2,9 +2,9 @@ from typing import *
 
 from pptree import print_tree
 
-from pokenet.battle import Battle
-from pokenet.classes import Item, Move, Player, Pokemon
-from pokenet.utils import calculations
+from pokemon_ai.battle import Battle
+from pokemon_ai.classes import Item, Move, Player, Pokemon
+from pokemon_ai.utils import calculations
 from .models import MonteCarloActionType
 from .predictor import Predictor
 from ..damage_model import DamageModel

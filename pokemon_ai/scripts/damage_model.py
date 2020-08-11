@@ -5,7 +5,7 @@ sys.path.append(join(dirname(__file__), '../..'))
 from pokemon_ai.battle import Battle
 from pokemon_ai.classes import Bag, Player
 from pokemon_ai.data import get_party
-from pokemon_ai.ai import DamageModel
+from pokemon_ai.ai.models import DamageModel
 
 
 party1 = get_party("charizard")

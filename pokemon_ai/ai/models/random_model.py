@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Callable
 
 from .. import ModelInterface
-from pokenet.classes import Player, Move, Item, Party
+from pokemon_ai.classes import Player, Move, Item, Party
 
 
 class RandomModel(ModelInterface):
