@@ -6,7 +6,9 @@ Pokémon battle simulator that uses reinforcement learning techniques to win aga
 
 1. `git clone https://github.com/anthonykrivonos/pokemon-ai.git`
 2. `cd pokemon-ai`
-3. `pip3 install -r requirements.txt`
+3. `python3 -m venv venv` - Create your virtual environment.
+4. `source venv/bin/activate` - Activate It.
+3. `pip install .`
 4. Run two player tests with `make two-player` or run the sample model with `make sample-model`.
 
 ## Creating a New Model
