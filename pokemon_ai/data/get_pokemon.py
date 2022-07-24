@@ -46,7 +46,8 @@ def get_pokemon(name_or_id: Union[int, str]) -> Pokemon:
         "ice": 14,
         "dragon": 15,
         "dark": 16,
-        "fairy": 17
+        "fairy": 17,
+        "typeless": 18
     }
     status_map = {
         "infatuation": 0,

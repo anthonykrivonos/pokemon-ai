@@ -67,6 +67,9 @@ class Move:
     def dec_pp(self):
         self._pp = max(0, self._pp - 1)
 
+    def inc_pp(self):
+        self._pp += 1
+
     def reveal(self):
         self._revealed = True
 

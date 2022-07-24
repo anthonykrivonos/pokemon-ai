@@ -12,7 +12,7 @@ from .models import MonteCarloActionType
 
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
-
+1
 # Input and output sizes of the network
 INPUT_SIZE = 60  # (1 HP, 4 Moves) x 6 Pokemon x 2 Players
 OUTPUT_SIZE = 31  # 6 switches + 4 Moves x 6 Pokemon + 1 outcome value

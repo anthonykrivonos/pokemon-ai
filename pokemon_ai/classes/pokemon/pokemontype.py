@@ -23,3 +23,4 @@ class PokemonType(Enum):
     DRAGON = 15
     DARK = 16
     FAIRY = 17
+    TYPELESS = 18

@@ -269,6 +269,7 @@ def is_effective(type: PokemonType, other_type: PokemonType) -> Effectiveness:
         # Not Effective
         elif other_type in [PokemonType.POISON, PokemonType.STEEL, PokemonType.FIRE]:
             return Effectiveness.NOT_EFFECTIVE
+    # Regularly effective or typeless
     return Effectiveness.NORMAL
 
 
