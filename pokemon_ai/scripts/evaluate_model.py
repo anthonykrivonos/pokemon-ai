@@ -6,7 +6,7 @@ sys.path.append(join(dirname(__file__), '../..'))
 from pokemon_ai.battle import Battle
 from pokemon_ai.classes import Bag, Player
 from pokemon_ai.data import get_party
-from pokemon_ai.ai.models import PorygonModel, RandomModel, SampleModel, DamageModel
+from pokemon_ai.ai.models import PorygonModel, RandomModel, SampleModel, DamageModel, SmartModel
 
 train_party1 = get_party("charizard", "venusaur")
 train_party2 = get_party("blastoise", "tentacruel")
@@ -23,7 +23,7 @@ for i in range(11):
     party1 = get_party("charizard", "venusaur")
     party2 = get_party("blastoise", "tentacruel")
 
-    player1 = Player("MCTS", party1, Bag(), p_model, player_id=1)
+    player1 = Player("MCTS", party1, Bag(), SmartModel(), player_id=1)
     player2 = Player("GET HIT WIT ALLA DAT", party2, Bag(), DamageModel(), player_id=2)
 
     battle = Battle(player1, player2, 1)
