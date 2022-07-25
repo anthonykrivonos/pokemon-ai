@@ -12,7 +12,7 @@ from .models import MonteCarloActionType
 
 # Very small value used in place of zero to avoid neural net training issues
 EPSILON = 1e-16
-1
+
 # Input and output sizes of the network
 INPUT_SIZE = 60  # (1 HP, 4 Moves) x 6 Pokemon x 2 Players
 OUTPUT_SIZE = 31  # 6 switches + 4 Moves x 6 Pokemon + 1 outcome value
@@ -100,9 +100,12 @@ class Predictor:
 
         # Randomly select a move given the move weights
         if move_type == MonteCarloActionType.ATTACK:
-            # Get a random move
-            move_idx = chances(move_probs, list(range(len(player.get_party().get_starting().get_move_bank().get_as_list()))))
-            attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
+            if player.get_party().get_starting().must_struggle():
+                attack = Pokemon.STRUGGLE
+            else:
+                # Get a random move
+                move_idx = chances(move_probs, list(range(len(player.get_party().get_starting().get_move_bank().get_as_list()))))
+                attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
 
             # Create a turn function
             def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],

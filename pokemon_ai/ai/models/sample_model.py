@@ -2,7 +2,7 @@ from typing import *
 
 import pokemon_ai.classes
 from ..model import ModelInterface
-from pokemon_ai.classes import Player, Move, Item, Party
+from pokemon_ai.classes import Player, Move, Item, Party, Pokemon
 
 
 class SampleModel(ModelInterface):
@@ -15,7 +15,7 @@ class SampleModel(ModelInterface):
         # I don't know what to do yet, so I'll just attack with my pokemon's first move.
         my_pokemon = player.get_party().get_starting()
         if my_pokemon.must_struggle():
-            attack_move = pokemon_ai.classes.Pokemon.STRUGGLE
+            attack_move = Pokemon.STRUGGLE
         else:
             attack_move = my_pokemon.get_move_bank().get_move(0)
         attack(attack_move)

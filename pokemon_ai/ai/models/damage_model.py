@@ -1,7 +1,7 @@
 from typing import *
 
 from ..model import ModelInterface
-from pokemon_ai.classes import Player, Move, Item, Party
+from pokemon_ai.classes import Player, Move, Item, Party, Pokemon
 from pokemon_ai.utils import calculate_damage_deterministic
 
 from .random_model import RandomModel
@@ -27,8 +27,10 @@ class DamageModel(ModelInterface):
                 damage_list.append((move, damage))
 
         damage_list.sort(reverse=True, key=lambda x: x[1])
-
-        attack(damage_list[0][0])
+        if len(damage_list) == 0:
+            attack(Pokemon.STRUGGLE)
+        else:
+            attack(damage_list[0][0])
 
     def force_switch_pokemon(self, party: Party):
         return RandomModel().force_switch_pokemon(party)

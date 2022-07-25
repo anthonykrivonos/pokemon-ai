@@ -2,7 +2,7 @@ from typing import *
 
 from concurrent.futures import ThreadPoolExecutor
 from pokemon_ai.classes import Player, Party, Move, Item
-from .mcts import make_tree
+from .mcts import make_tree, MonteCarloNode
 from ..random_model import RandomModel
 from .predictor import Predictor
 
@@ -20,6 +20,10 @@ class PorygonModel(ModelInterface):
         self._verbose = verbose
         self._use_damage_model = use_damage_model
         self._predictor = Predictor(verbose=verbose)
+
+    def train_model(self, player: Player, other_player):
+        node = MonteCarloNode(player, other_player)
+        self._predictor.train_model(node=node, player=player, other_player=other_player)
 
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None], use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
         with ThreadPoolExecutor() as executor:
