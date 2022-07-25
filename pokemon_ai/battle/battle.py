@@ -487,9 +487,8 @@ class Battle:
                 on_pokemon.heal(move.get_base_heal())
                 self._alert(pokemon.get_name() + ' gained ' + str(move.get_base_heal()) + ' HP.', player)
 
-            # TODO I need to figure out how to handle keeping track of pokemon fainting to switch
             if pokemon.is_fainted():
-                return False
+                self._turn_switch_pokemon(player)
 
             # Check if the Pokemon fainted
             if on_pokemon.is_fainted():
