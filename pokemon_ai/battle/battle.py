@@ -238,35 +238,39 @@ class Battle:
         other_player = self.player2 if player.get_id() == self._PLAYER_1_ID else self.player1
         on_pokemon = other_player.get_party().get_starting()
         move = None
-        if pokemon.must_struggle():
-            print(True)
-            while move is None:
-                move_idx = prompt_multi(pokemon.get_name() + ' is out of usable moves.\nWould you like to use Struggle?',
-                                        'No (Go back)', *['Yes'])
-                if move_idx == 0:
-                    return False
-                move = Pokemon.STRUGGLE
-        elif not player.is_ai():
-            while move is None or not move.is_available():
-                move_idx = prompt_multi('Select a move.', 'None (Go back)',
-                                        *[m.get_name() + ': ' + PokemonType(m.get_type()).name.lower().capitalize() +
-                                          (" (" + is_effective(m.get_type(),
-                                                               on_pokemon.get_type()).name.lower() + " damage) " if
-                                           self.use_hints else "") + ', ' + str(m.get_pp()) + '/' + str(m.get_base_pp())
-                                          + ' PP' for m in pokemon.get_move_bank().get_as_list()])[0]
-                if move_idx == 0:
-                    return False
-                move = pokemon.get_move_bank().get_move(move_idx - 1)
-                if not move.is_available():
-                    self._alert("There's no PP left for this move!", player)
+        if not player.is_ai():
+            if pokemon.must_struggle():
+                while move is None:
+                    move_idx = prompt_multi(
+                        pokemon.get_name() + ' is out of usable moves.\nWould you like to use Struggle?',
+                        'No (Go back)', *['Yes'])
+                    if move_idx == 0:
+                        return False
+                    move = Pokemon.STRUGGLE
+            else:
+                while move is None or not move.is_available():
+                    move_idx = prompt_multi('Select a move.', 'None (Go back)',
+                                            *[m.get_name() + ': ' + PokemonType(m.get_type()).name.lower().capitalize() +
+                                              (" (" + is_effective(m.get_type(),
+                                                                   on_pokemon.get_type()).name.lower() + " damage) " if
+                                               self.use_hints else "") + ', ' + str(m.get_pp()) + '/' + str(m.get_base_pp())
+                                              + ' PP' for m in pokemon.get_move_bank().get_as_list()])[0]
+                    if move_idx == 0:
+                        return False
+                    move = pokemon.get_move_bank().get_move(move_idx - 1)
+                    if not move.is_available():
+                        self._alert("There's no PP left for this move!", player)
         elif ai_move is not None:
             # ai_move contains the same move on another copy of the player's Pokemon, so we have to retrieve the
             # same move in the current in-game Pokemon
-            ai_move_name = ai_move.get_name()
-            for temp_move in player.get_party().get_starting().get_move_bank().get_as_list():
-                if temp_move.get_name() == ai_move_name:
-                    move = temp_move
-                    break
+            if pokemon.must_struggle():
+                move = Pokemon.STRUGGLE
+            else:
+                ai_move_name = ai_move.get_name()
+                for temp_move in player.get_party().get_starting().get_move_bank().get_as_list():
+                    if temp_move.get_name() == ai_move_name:
+                        move = temp_move
+                        break
         else:
             return False
 
@@ -482,6 +486,10 @@ class Battle:
             if move.get_base_heal() > 0:
                 on_pokemon.heal(move.get_base_heal())
                 self._alert(pokemon.get_name() + ' gained ' + str(move.get_base_heal()) + ' HP.', player)
+
+            # TODO I need to figure out how to handle keeping track of pokemon fainting to switch
+            if pokemon.is_fainted():
+                return False
 
             # Check if the Pokemon fainted
             if on_pokemon.is_fainted():
