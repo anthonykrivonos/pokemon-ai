@@ -6,9 +6,6 @@ from pokemon_ai.classes import Player, Move, Item, Party, Pokemon
 
 
 class SmartModel(ModelInterface):
-    """
-    A sample model used to show how to create classes.
-    """
 
     def take_turn(self, player: Player, other_player: Player, attack: Callable[[Move], None],
                   use_item: Callable[[Item], None], switch_pokemon_at_idx: Callable[[int], None]) -> None:
