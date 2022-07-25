@@ -100,9 +100,12 @@ class Predictor:
 
         # Randomly select a move given the move weights
         if move_type == MonteCarloActionType.ATTACK:
-            # Get a random move
-            move_idx = chances(move_probs, list(range(len(player.get_party().get_starting().get_move_bank().get_as_list()))))
-            attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
+            if player.get_party().get_starting().must_struggle():
+                attack = Pokemon.STRUGGLE
+            else:
+                # Get a random move
+                move_idx = chances(move_probs, list(range(len(player.get_party().get_starting().get_move_bank().get_as_list()))))
+                attack = player.get_party().get_starting().get_move_bank().get_move(move_idx)
 
             # Create a turn function
             def take_turn(_: Player, __: Player, do_move: Callable[[Move], None], ___: Callable[[Item], None],

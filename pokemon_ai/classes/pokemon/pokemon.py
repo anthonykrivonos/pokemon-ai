@@ -2,7 +2,9 @@ from typing import *
 from . import Status
 
 import random
+import math
 
+from .moves import Move
 from .pokemontype import PokemonType
 from .stats import Stats
 from .moves.move_bank import MoveBank
@@ -12,6 +14,8 @@ class Pokemon:
     """
     All attributes related to a Pokemon.
     """
+
+    STRUGGLE = Move(name="Struggle", base_damage=50, pp=1, type=PokemonType.TYPELESS, is_special=True, base_heal=0, status_inflict=None)
 
     def __init__(self, pokemon_type: PokemonType, name: str, level: int, stats: Stats, move_bank: MoveBank, hp: int, status: Status = None, other_status: Status = None, status_turns: int = 0, other_status_turns: int = 0, pokemon_id = None):
         """
@@ -152,3 +156,9 @@ class Pokemon:
         for move in self.get_move_bank().get_as_list():
             string += "· %s  " % (str(move) if (self.is_revealed() and move.is_revealed()) else "???")
         return string
+
+    def must_struggle(self):
+        for i in range(len(self._move_bank.get_as_list())):
+            if self._move_bank.get_move(i).get_pp() != 0:
+                return False
+        return True

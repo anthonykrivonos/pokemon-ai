@@ -1,9 +1,10 @@
+import random
 from random import shuffle, randint
 from copy import deepcopy
 from typing import Callable
 
 from .. import ModelInterface
-from pokemon_ai.classes import Player, Move, Item, Party
+from pokemon_ai.classes import Player, Move, Item, Party, Pokemon
 
 
 class RandomModel(ModelInterface):
@@ -27,8 +28,11 @@ class RandomModel(ModelInterface):
                 if move.is_available():
                     attack(move)
                     break
+        elif num_available_moves == 0 and (num_available_pokemon == 0 or random.random() < 0.5):
+            # If you have no moves and either coin flip or no other pokemon, use struggle
+            attack(Pokemon.STRUGGLE)
         else:
-            # Perform a switch
+            # Perform a switch if possible
             idx = self.force_switch_pokemon(player.get_party())
             switch_pokemon_at_idx(idx)
 
