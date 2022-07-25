@@ -488,6 +488,7 @@ class Battle:
                 self._alert(pokemon.get_name() + ' gained ' + str(move.get_base_heal()) + ' HP.', player)
 
             if pokemon.is_fainted():
+                self._alert(pokemon.get_name() + ' fainted!')
                 self._turn_switch_pokemon(player)
 
             # Check if the Pokemon fainted
